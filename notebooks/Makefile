@@ -1,21 +1,11 @@
-PYTHON_FILES=$(wildcard *py)
-JUPYTEXT_FILES=$(filter 0%py,${PYTHON_FILES})
-NOTEBOOKS_PLAIN=$(JUPYTEXT_FILES:%.py=%.ipynb)
-NOTEBOOKS_HTML =$(JUPYTEXT_FILES:%.py=%.html)
+pyfiles=$(shell ls -1 *.py | grep -E '[0-9]+_.+\.py')
+notebooks=$(pyfiles:%.py=%.ipynb)
 
-PDFCMD?=latexmk -xelatex -synctex=1 -interaction=nonstopmode
-JPYOPTS?=--execute
+all: $(notebooks)
 
-all: $(NOTEBOOKS_PLAIN) $(NOTEBOOKS_HTML)
-
-#TODO: using the svg export with the tikz option for standalone doesn't work right
-#      need to install texlive-dvisvgm in order to try: latex <filestem> && dvisvgm <filestem>
-
-%.ipynb : %.py
-	@jupytext --to ipynb ${JPYOPTS} $<
-
-%.html : %.ipynb
-	@jupyter nbconvert $< --to html
+$(notebooks): %.ipynb: %.py
+	jupytext --use-source-timestamp --update --to ipynb $<
+	jupytext --use-source-timestamp --set-formats ipynb,py:percent $<
 
 clean:
-	@rm -fv $(NOTEBOOKS_PLAIN) $(NOTEBOOKS_HTML)
+	rm -fv $(notebooks)
