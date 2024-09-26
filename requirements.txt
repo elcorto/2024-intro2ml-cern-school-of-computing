@@ -1,15 +1,22 @@
-#required for working with the notebooks
+# ----------------------------------------------------------------------------
+# creating and running notebooks
+# ----------------------------------------------------------------------------
+
 jupytext
 ipykernel
 notebook
 
-#required to run the notebooks
-torch 
-#torchvision
+# ----------------------------------------------------------------------------
+# machine learning and plotting
+# ----------------------------------------------------------------------------
+
+# Install manually before for CPU-only version. See README for details.
+torch
+
+##torchvision
 seaborn
 mnist1d
 scikit-learn
 torchinfo
 
-#nice to have for installing things
-uv
+# vim:syn=conf
