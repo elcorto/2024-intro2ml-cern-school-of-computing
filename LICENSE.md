@@ -1,6 +1,7 @@
 BSD 3-Clause License
 
 Copyright (c) 2024, Peter Steinbach (p.steinbach@hzdr.de)
+Copyright (c) 2024, Steve Schmerler (git@elcorto.com, s.schmerler@hzdr.de), Sebastian Starke (s.starke@hzdr.de)
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
