@@ -69,7 +69,7 @@ Take pen and paper or a digital equivalent. Mark the path of all computations wh
 #
 # <div style="display: block;margin-left: auto;margin-right: auto;width: 75%;"><img src="img/01_detailed_mlp.svg" alt="linear MLP with values"></div>
 #
-# All weight matrix elements will be used except the following 3 elements $\boldsymbol{\omega}_{00}^{II}, \boldsymbol{\omega}_{10}^{II}, \boldsymbol{\omega}_{20}^{II}$ as their are required to calculate $\hat{y}_0$. All results of the hidden layer will be used as inputs to the last layer, that is why all elements of $W^{I}$ are part of the calculation.
+# All weight matrix elements will be used except the following 3 elements $\boldsymbol{\omega}_{00}^{II}, \boldsymbol{\omega}_{01}^{II}, \boldsymbol{\omega}_{02}^{II}$ as they are required to calculate $\hat{y}_0$. All results of the hidden layer will be used as inputs to the last layer, that is why all elements of $W^{I}$ are part of the calculation.
 
 
 # %% [markdown]
@@ -106,7 +106,7 @@ Use the [ReLU function](https://en.wikipedia.org/wiki/Rectifier_(neural_networks
 # > **Solution 01.2**
 # > 1. Compute $\omega \cdot x' + \beta$: We obtain `2`.
 # > 2. Apply the ReLU: We obtain `y'=2` again (2 is larger than 0 and hence $f_{ReLU}(x=2)=2$).
-# > 3. Compute the loss: $\mathcal{L}(y,y') = (y-y')^2 = (2 - 1.5)^2 = \frac{1}{4}$ 
+# > 3. Compute the loss: $\mathcal{L}(y,y') = (y-y')^2 = (2 - 1.5)^2 = \frac{1}{4}$
 
 # %% [markdown]
 # # Supervised Learning
