@@ -354,7 +354,7 @@ nvalidationsteps = len(validation_dataloader)
 validation_acc, validation_loss = torch.zeros((nvalidationsteps,)), torch.zeros((nvalidationsteps,))
 
 for epoch in range(max_epochs):
-
+    model.train()
     # perform training for one epoch
     for idx, (X, y) in enumerate(train_dataloader):
 
@@ -382,15 +382,17 @@ for epoch in range(max_epochs):
         train_loss[idx] = loss.item()
         train_acc[idx] = acc
 
-    for idx, (X_validation, y_validation) in enumerate(validation_dataloader):
-        y_hat_validation = model(X_validation)
-        loss_ = criterion(y_hat_validation, y_validation)
+    model.eval()
+    with torch.no_grad():
+        for idx, (X_validation, y_validation) in enumerate(validation_dataloader):
+            y_hat_validation = model(X_validation)
+            loss_ = criterion(y_hat_validation, y_validation)
 
-        y_hat_validation_class = y_hat_validation.softmax(-1).argmax(-1)
-        acc = accuracy(y_validation.cpu().numpy(),
-                       y_hat_validation_class.cpu().numpy())
-        validation_loss[idx] = loss_.item()
-        validation_acc[idx] = acc
+            y_hat_validation_class = y_hat_validation.softmax(-1).argmax(-1)
+            acc = accuracy(y_validation.cpu().numpy(),
+                        y_hat_validation_class.cpu().numpy())
+            validation_loss[idx] = loss_.item()
+            validation_acc[idx] = acc
 
     results['train_losses'].append(train_loss.mean())
     results['train_acc'].append(train_acc.mean())
