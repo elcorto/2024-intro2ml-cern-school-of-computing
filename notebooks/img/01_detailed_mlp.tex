@@ -20,22 +20,22 @@
  $x_{#1}$
 }
 \providecommand{\hidlText}[1]{
- {$H_{#1} = \sum_{j} \mathbf{\omega}^{I}_{#1 j} \cdot x_{j} + \beta^{I}_{#1}$}%
+ {$H_{#1} = \sum_{j} W^{I}_{#1 j} \cdot x_{j} + \beta^{I}_{#1}$}%
 }
 \providecommand{\hidrText}[1]{
  {$h_{#1}=\sigma_{relu}(H_{#1})$}%
 }
 \providecommand{\outlText}[1]{
- {$y'_{#1} = \sum_{j} \mathbf{\omega}^{II}_{#1 j} \cdot h_{j} + \beta^{II}_{#1}$}%
+ {$z_{#1} = \sum_{j} W^{II}_{#1 j} \cdot h_{j} + \beta^{II}_{#1}$}%
 }
 
 \providecommand{\outrText}[1]{
- $\hat{y}_{#1}=\sigma(y'_{#1})$%
+ $\hat{y}_{#1}=\sigma(z_{#1})$%
 }
 \providecommand{\synapseIHText}[2]{%
-  {\ifthenelse{\equal{#2}{0}}{\small$\boldsymbol{\omega}^{(I)}_{#1#2}$}{\dots}}}
+  {\ifthenelse{\equal{#2}{0}}{\small $W^{(I)}_{#1#2}$}{\dots}}}
 \providecommand{\synapseHOText}[2]{%
-  {\ifthenelse{\equal{#2}{0}}{\small$\boldsymbol{\omega}^{(II)}_{#1#2}$}{\dots}}%
+  {\ifthenelse{\equal{#2}{0}}{\small $W^{(II)}_{#1#2}$}{\dots}}%
 }
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -46,9 +46,9 @@
 % preamble
 %\providecommand{\hidText}[1]{$H_{#1}$}%
 \makeatletter
-\newcommand{\tikzANN@InputLayerTitle}{Input\\Layer\\[4pt]$\vec{x}$}%
-\newcommand{\tikzANN@HiddenLayerTitle}{Hidden\\Layer\\[4pt]$\vec{h} = \sigma_{relu}(\mathbf{W}\cdot\vec{x} + \vec{b})$}%
-\newcommand{\tikzANN@OutputLayerTitle}{Output\\Layer\\[4pt]$\vec{\hat{y}}$}%
+\newcommand{\tikzANN@InputLayerTitle}{Input\\Layer\\[4pt]$x$}%
+\newcommand{\tikzANN@HiddenLayerTitle}{Hidden\\Layer\\[4pt]$h = \sigma_{relu}(W^{I} \cdot x + b^{I})$}%
+\newcommand{\tikzANN@OutputLayerTitle}{Output\\Layer\\[4pt]$\hat{y} = \sigma(W^{II} \cdot h + b^{II})$}%
 \providecommand{\tikzANNInputLayerTitle} {\tikzANN@InputLayerTitle}%
 \providecommand{\tikzANNHiddenLayerTitle}{\tikzANN@HiddenLayerTitle}%
 \providecommand{\tikzANNOutputLayerTitle}{\tikzANN@OutputLayerTitle}%
@@ -76,22 +76,22 @@
   \node[inNeuron, below=of in 0] (in 1) {\inText{1}};
   \node[inNeuron, below=of in 1] (in 2) {\inText{2}};
 
-  \node[hiddenNeuron, right=6em of in 0] (hid 0) {\hidlText{0}}; 
-  \node[hiddenNeuron, right=6em of in 1] (hid 1) {\hidlText{1}}; 
-  \node[hiddenNeuron, right=6em of in 2] (hid 2) {\hidlText{2}}; 
+  \node[hiddenNeuron, right=6em of in 0] (hid 0) {\hidlText{0}};
+  \node[hiddenNeuron, right=6em of in 1] (hid 1) {\hidlText{1}};
+  \node[hiddenNeuron, right=6em of in 2] (hid 2) {\hidlText{2}};
 
-  \node[hiddenNeuron, right=18em of in 0,anchor=west] (rel 0) {\hidrText{0}}; 
-  \node[hiddenNeuron, right=18em of in 1,anchor=west] (rel 1) {\hidrText{1}}; 
-  \node[hiddenNeuron, right=18em of in 2,anchor=west] (rel 2) {\hidrText{2}}; 
-  
+  \node[hiddenNeuron, right=18em of in 0,anchor=west] (rel 0) {\hidrText{0}};
+  \node[hiddenNeuron, right=18em of in 1,anchor=west] (rel 1) {\hidrText{1}};
+  \node[hiddenNeuron, right=18em of in 2,anchor=west] (rel 2) {\hidrText{2}};
+
   \node[inner sep=0em,outer sep=0em, fit=(rel 0) (rel 1)] (relG 01) {};
   \node[inner sep=0em,outer sep=0em, fit=(rel 2) (rel 1)] (relG 12) {};
 
-  \node[hiddenNeuron, right=5em of relG 01] (outl 0) {\outlText{0}}; 
+  \node[hiddenNeuron, right=5em of relG 01] (outl 0) {\outlText{0}};
   \node[hiddenNeuron, right=5em of relG 12] (outl 1) {\outlText{1}};
 
-  \node[outNeuron, right=2em of outl 0] (out 0) {\outrText{0}}; 
-  \node[outNeuron, right=2em of outl 1] (out 1) {\outrText{1}}; 
+  \node[outNeuron, right=2em of outl 0] (out 0) {\outrText{0}};
+  \node[outNeuron, right=2em of outl 1] (out 1) {\outrText{1}};
 
   \foreach \a in {0,...,2} {
     \draw (hid \a) -- (rel \a);
@@ -100,7 +100,7 @@
   \foreach \a in {0,...,1} {
     \draw (outl \a) -- (out \a);
   }
-  
+
   \foreach \a in {0,...,2} {
    \foreach \s in {0,...,2} {
     \draw (in \a) -- (hid \s) node[synapseNodeMy] {\synapseIHText{\s}{\a}
@@ -114,7 +114,7 @@
    }}
 
 
- 
+
  \node[above=1.5em of in 0,align=center] {\tikzANNInputLayerTitle};
 
  \node[inner sep=0em,outer sep=0em, fit=(hid 0) (rel 0)] (midH) {};
