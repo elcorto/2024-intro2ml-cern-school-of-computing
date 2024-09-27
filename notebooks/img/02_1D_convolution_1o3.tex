@@ -27,7 +27,7 @@
         \node [draw] (krnl_li0_1) at($(krnl_li0_0)+(.7,0)$) {0};
         \node [draw] (krnl_li0_2) at($(krnl_li0_1)+(0.7,0)$) {-1};
 
-        \node [draw,on chain=1] (res_li0_1) at($(krnl_li0_1)+(0,-24pt)$) {$-2$};
+        \node [draw,fill=lightgray,on chain=1] (res_li0_1) at($(krnl_li0_1)+(0,-24pt)$) {$-2$};
         \foreach \a in {2,...,7} {
           \a, \node [draw,name=res_li0_\a,on chain=1] {0};
         }
