@@ -403,9 +403,14 @@ ldec = MyLinearDecoder()
 # to denominate the channel number
 Xtest_ = Xtest
 latent_h_ = lenc(Xtest_)
-assert latent_h_.shape == (8, 10), f"{latent_h_.shape} is not (8,10) as expected"
+assert latent_h_.shape == (
+    8,
+    10,
+), f"{latent_h_.shape} is not (8,10) as expected"
 Xtest_prime_ = ldec(latent_h_)
-assert Xtest_prime_.shape == Xtest_.shape, f"{Xtest_prime_.shape} != {Xtest_.shape}"
+assert (
+    Xtest_prime_.shape == Xtest_.shape
+), f"{Xtest_prime_.shape} != {Xtest_.shape}"
 
 # %% [markdown]
 """
@@ -436,11 +441,13 @@ test_clean = MNIST1D(mnist1d_args=clean_config, train=False)
 training_data = torch.utils.data.StackDataset(training_noisy, training_clean)
 test_data = torch.utils.data.StackDataset(test_noisy, test_clean)
 
-train_dataloaders  = DataLoader(training_data, batch_size=64, shuffle=True)
-test_dataloaders   = DataLoader(test_data, batch_size=64, shuffle=True)
+train_dataloaders = DataLoader(training_data, batch_size=64, shuffle=True)
+test_dataloaders = DataLoader(test_data, batch_size=64, shuffle=True)
 
 nsamples = len(training_noisy) + len(test_noisy)
-assert nsamples == 4_000, f"number of samples for MNIST1D is not 4_000 but {nsamples}"
+assert (
+    nsamples == 4_000
+), f"number of samples for MNIST1D is not 4_000 but {nsamples}"
 
 model = MyAutoencoder(nchannels=32)
 print(f"training conv autoencoder with {count_params(model)} parameters")
@@ -456,12 +463,21 @@ criterion = torch.nn.MSELoss()  # our loss function
 # %%
 # write the training loop
 def train_autoencoder(
-    model, opt, crit, train_dataloader, test_dataloader, max_epochs, log_every=5
+    model,
+    opt,
+    crit,
+    train_dataloader,
+    test_dataloader,
+    max_epochs,
+    log_every=5,
 ):
     results = {"train_losses": [], "test_losses": []}
     ntrainsteps = len(train_dataloader)
     nteststeps = len(test_dataloader)
-    train_loss, test_loss = torch.zeros((ntrainsteps,)), torch.zeros((nteststeps,))
+    train_loss, test_loss = (
+        torch.zeros((ntrainsteps,)),
+        torch.zeros((nteststeps,)),
+    )
 
     for epoch in range(max_epochs):
         # perform training for one epoch
