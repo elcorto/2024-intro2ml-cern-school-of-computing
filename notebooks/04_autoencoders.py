@@ -157,7 +157,7 @@ from utils import count_params
 
 
 class MyEncoder(torch.nn.Module):
-    def __init__(self, nlayers: int = 3, nchannels=16):
+    def __init__(self, nlayers=3, nchannels=16):
         super().__init__()
         self.layers = torch.nn.Sequential()
 
@@ -239,7 +239,7 @@ reconstruct from the latent space.
 
 # %%
 class MyDecoder(torch.nn.Module):
-    def __init__(self, nlayers: int = 3, nchannels=16):
+    def __init__(self, nlayers=3, nchannels=16):
         super().__init__()
         self.layers = torch.nn.Sequential()
 
@@ -303,7 +303,7 @@ by combining the encoder and decoder in yet another `torch.nn.Module`.
 
 # %%
 class MyAutoencoder(torch.nn.Module):
-    def __init__(self, nlayers: int = 3, nchannels=16):
+    def __init__(self, nlayers=3, nchannels=16):
         super().__init__()
 
         self.enc = MyEncoder(nlayers, nchannels)
@@ -347,7 +347,7 @@ signature of the `self.__init__` methods the same.
 # %% jupyter={"source_hidden": true}
 # 04.1 Solution
 class MyLinearEncoder(torch.nn.Module):
-    def __init__(self, nlayers: int = 3, nchannels=16, inputdim=40):
+    def __init__(self, nlayers=3, nchannels=16, inputdim=40):
         super().__init__()
         self.layers = torch.nn.Sequential()
         indim = inputdim
@@ -370,7 +370,7 @@ class MyLinearEncoder(torch.nn.Module):
 
 
 class MyLinearDecoder(torch.nn.Module):
-    def __init__(self, nlayers: int = 3, nchannels=16, inputdim=10):
+    def __init__(self, nlayers=3, nchannels=16, inputdim=10):
         super().__init__()
         self.layers = torch.nn.Sequential()
         indim = inputdim
@@ -595,7 +595,7 @@ difference in the reconstruction?
 # %% jupyter={"source_hidden": true}
 # 04.2 Solution
 class MyLinearAutoencoder(torch.nn.Module):
-    def __init__(self, nlayers: int = 3, nchannels=16):
+    def __init__(self, nlayers=3, nchannels=16):
         super().__init__()
 
         self.enc = MyLinearEncoder(nlayers, nchannels)
