@@ -2,9 +2,12 @@
 name: convert-jupyter-notebooks
 
 on:
-  push:
+  workflow_run:
+    workflows: ["tests"]
     branches:
       - main
+    types:
+      - completed
 
 jobs:
   create-jupyter-notebooks:

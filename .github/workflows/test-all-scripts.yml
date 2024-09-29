@@ -1,4 +1,4 @@
-name: Testrun-all-notebook-scripts
+name: tests
 
 on:
   push:
