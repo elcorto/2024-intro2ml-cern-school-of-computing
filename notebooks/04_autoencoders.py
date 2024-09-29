@@ -102,7 +102,7 @@ Now, let's plot the data which we would like to use.
 # %%
 import matplotlib.pyplot as plt
 
-f, ax = plt.subplots(2, 5, figsize=(14, 5), sharex=True, sharey=True)
+fig, ax = plt.subplots(2, 5, figsize=(14, 5), sharex=True, sharey=True)
 
 for sample in range(10):
     col = sample % 5
@@ -118,8 +118,8 @@ for sample in range(10):
     if col == 4 and row == 0:
         ax[row, col].legend()
 
-f.suptitle("MNIST1D examples")
-f.savefig("mnist1d_noisy_first10.svg")
+fig.suptitle("MNIST1D examples")
+fig.savefig("mnist1d_noisy_first10.svg")
 
 # %% [markdown]
 """
@@ -531,7 +531,7 @@ results = train_autoencoder(
     log_every,
 )
 # %%
-f, ax = plt.subplots(1, 2, figsize=(10, 4))
+fig, ax = plt.subplots(1, 2, figsize=(10, 4))
 
 ax[0].plot(results["train_losses"], color="b", label="train")
 ax[0].plot(results["test_losses"], color="orange", label="test")
@@ -562,7 +562,7 @@ ax[1].set_ylabel("intensity / a.u.")
 ax[1].set_title(f"Conv-based Autoencoder, label = {last_y.detach().item()}")
 ax[1].legend()
 
-f.savefig("mnist1d_noisy_conv_autoencoder_training.svg")
+fig.savefig("mnist1d_noisy_conv_autoencoder_training.svg")
 
 # %% [markdown]
 """
@@ -629,7 +629,7 @@ lresults = train_autoencoder(
 )
 
 # viz the results
-f, ax = plt.subplots(1, 2, figsize=(10, 4))
+fig, ax = plt.subplots(1, 2, figsize=(10, 4))
 
 ax[0].plot(lresults["train_losses"], color="b", label="train")
 ax[0].plot(lresults["test_losses"], color="orange", label="test")
@@ -653,7 +653,7 @@ ax[1].set_ylabel("intensity / a.u.")
 ax[1].set_title(f"Linear Autoencoder, label = {last_y.detach().item()}")
 ax[1].legend()
 
-f.savefig("mnist1d_noisy_linear_autoencoder_training.svg")
+fig.savefig("mnist1d_noisy_linear_autoencoder_training.svg")
 
 # %% [markdown] jupyter={"source_hidden": true}
 """
