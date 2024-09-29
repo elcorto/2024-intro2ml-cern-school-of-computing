@@ -17,30 +17,54 @@
 """
 # Autoencoders
 
-An autoencoder is a type of artificial neural network used for learning efficient codings of input data. It's essentially a network that attempts to replicate its input (encoding) as its output (decoding), but the network is designed in such a way that it must learn an efficient representation (compression) for the input data in order to map it back to itself.
+An autoencoder is a type of artificial neural network used for learning
+efficient codings of input data. It's essentially a network that attempts to
+replicate its input (encoding) as its output (decoding), but the network is
+designed in such a way that it must learn an efficient representation
+(compression) for the input data in order to map it back to itself.
 
-The importance of autoencoders lies in their ability to learn the underlying structure of complex data, making them valuable tools for scientific data analysis. Here's how:
+The importance of autoencoders lies in their ability to learn the underlying
+structure of complex data, making them valuable tools for scientific data
+analysis. Here's how:
 
-1. Dimensionality Reduction: Autoencoders can be used to reduce the dimensionality of high-dimensional data while preserving its essential characteristics. This is particularly useful in cases where the high dimensionality makes computations slow or the data overfitting occurs.
+1. Dimensionality Reduction: Autoencoders can be used to reduce the
+dimensionality of high-dimensional data while preserving its essential
+characteristics. This is particularly useful in cases where the high
+dimensionality makes computations slow or the data overfitting occurs.
 
-2. Denoising: By training autoencoders on noisy versions of the data, they can learn to remove noise from the original data, making it cleaner and easier to analyze.
+2. Denoising: By training autoencoders on noisy versions of the data, they can
+learn to remove noise from the original data, making it cleaner and easier to
+analyze.
 
-3. Anomaly Detection: The encoder part of the autoencoder can be used to represent the input data in a lower-dimensional space. Any data point that is far from the rest in this space can be considered an anomaly, as it doesn't fit the pattern learned by the autoencoder during training.
+3. Anomaly Detection: The encoder part of the autoencoder can be used to
+represent the input data in a lower-dimensional space. Any data point that is
+far from the rest in this space can be considered an anomaly, as it doesn't fit
+the pattern learned by the autoencoder during training.
 
-4. Generative Modeling: Autoencoders can be used as generative models, allowing them to generate new data that are similar to the original data. This can be useful in various scientific applications, such as creating synthetic data or for exploring the data space.
+4. Generative Modeling: Autoencoders can be used as generative models, allowing
+them to generate new data that are similar to the original data. This can be
+useful in various scientific applications, such as creating synthetic data or
+for exploring the data space.
 
-5. Feature Learning: Autoencoders can learn useful features from raw data, which can then be used as inputs for other machine learning models, improving their performance.
+5. Feature Learning: Autoencoders can learn useful features from raw data,
+which can then be used as inputs for other machine learning models, improving
+their performance.
 
-In summary, autoencoders are a powerful tool for scientific data analysis due to their ability to learn the underlying structure of complex data.
+In summary, autoencoders are a powerful tool for scientific data analysis due
+to their ability to learn the underlying structure of complex data.
 """
 
 # %% [markdown]
 """
 ## An autoencoder for denoising
 
-In the next cells, we will face a situation in which the quality of the data is rather poor. There is a lot of noise added to the dataset which is hard to handle. We will set up an autoencoder to tackle the task of **denoising**, i.e. to remove stochastic fluctuations from the input as best as possible.
+In the next cells, we will face a situation in which the quality of the data is
+rather poor. There is a lot of noise added to the dataset which is hard to
+handle. We will set up an autoencoder to tackle the task of **denoising**, i.e.
+to remove stochastic fluctuations from the input as best as possible.
 
-First, let's prepare a dataset, which is contains a signal we are interested in and the noise.
+First, let's prepare a dataset, which is contains a signal we are interested in
+and the noise.
 """
 
 # %%
@@ -100,19 +124,33 @@ f.savefig("mnist1d_noisy_first10.svg")
 
 # %% [markdown]
 """
-As we can see, the data is filled with jitter. Furthermore, it is interesting to note, that our dataset is still far from trivial. Have a look at all signals which are assigned to label `6`. Could you make them out by eye?
+As we can see, the data is filled with jitter. Furthermore, it is interesting
+to note, that our dataset is still far from trivial. Have a look at all signals
+which are assigned to label `6`. Could you make them out by eye?
 
 ## Designing an autoencoder
 
-The [autoencoder architecture](https://en.wikipedia.org/wiki/Autoencoder) is well illustrated on wikipedia. We reproduce [the image](https://commons.wikimedia.org/wiki/File:Autoencoder_schema.png) by [Michaela Massi](https://commons.wikimedia.org/w/index.php?title=User:Michela_Massi&action=edit&redlink=1) here for convenience:
-<div style="display: block;margin-left: auto;margin-right: auto;width: 75%;"><img src="https://upload.wikimedia.org/wikipedia/commons/3/37/Autoencoder_schema.png" alt="autoencoder schematic from wikipedia by Michaela Massi, CC-BY 4.0"></div>
+The [autoencoder architecture](https://en.wikipedia.org/wiki/Autoencoder) is
+well illustrated on wikipedia. We reproduce [the
+image](https://commons.wikimedia.org/wiki/File:Autoencoder_schema.png) by
+[Michaela
+Massi](https://commons.wikimedia.org/w/index.php?title=User:Michela_Massi&action=edit&redlink=1)
+here for convenience: <div style="display: block;margin-left:
+auto;margin-right: auto;width: 75%;"><img
+src="https://upload.wikimedia.org/wikipedia/commons/3/37/Autoencoder_schema.png"
+alt="autoencoder schematic from wikipedia by Michaela Massi, CC-BY 4.0"></div>
 
 The architecture consists of three parts:
-1. **the encoder** on the left: this small network ingests the input data `X` and compresses it into a smaller shape
-2. the **code** in the center: this is the "bottleneck" which holds the **latent representation** of your input data
+
+1. **the encoder** on the left: this small network ingests the input data `X`
+   and compresses it into a smaller shape
+2. the **code** in the center: this is the "bottleneck" which holds the
+   **latent representation** of your input data
 3. **the decoder** on the right: which reconstructs the output from the latent code
 
-The task of the autoencoder is to reconstruct the input as best as possible. This task is far from easy, as the autoencoder is forced to shrink the data into the latent space.
+The task of the autoencoder is to reconstruct the input as best as possible.
+This task is far from easy, as the autoencoder is forced to shrink the data
+into the latent space.
 """
 
 # %%
@@ -195,7 +233,8 @@ assert (
 
 # %% [markdown]
 """
-The encoder has been constructed. Now, we need to add a decoder object to reconstruct from the latent space.
+The encoder has been constructed. Now, we need to add a decoder object to
+reconstruct from the latent space.
 """
 
 
@@ -258,7 +297,8 @@ assert (
 
 # %% [markdown]
 """
-We have now all the lego bricks in place to compose an autoencoder. We do this by comining the encoder and decoder in yet another `torch.nn.Module`.
+We have now all the lego bricks in place to compose an autoencoder. We do this
+by comining the encoder and decoder in yet another `torch.nn.Module`.
 """
 
 
@@ -298,7 +338,10 @@ print(f"autoencoder is ready to train!")
 """
 ## **Exercise 04.1** MLPs for an autoencoder
 
-We have so far built up our autoencoder with convolutional operations only. The same can be done with `torch.nn.Linear` layers only. **Please code an encoder and decoder that only require the use of `torch.nn.Linear` layers!** Keep the signature of the `self.__init__` methods the same.
+We have so far built up our autoencoder with convolutional operations only. The
+same can be done with `torch.nn.Linear` layers only. **Please code an encoder
+and decoder that only require the use of `torch.nn.Linear` layers!** Keep the
+signature of the `self.__init__` methods the same.
 """
 
 
@@ -508,19 +551,29 @@ f.savefig("mnist1d_noisy_conv_autoencoder_training.svg")
 
 # %% [markdown]
 """
-We can see that the autoencoder smoothed the input signal when producing a reconstruction. This denoising effect can be quite helpful in practice. The core reasons for this effect are:
-1. the bottleneck (producing the latent representation) in the architecture forces the model to generalize the input data
-2. we train using the L2 norm (or mean squared error) as the loss function, this has a smoothing effect as well as the learning goal for the model is effectively to produce low differences on average
+We can see that the autoencoder smoothed the input signal when producing a
+reconstruction. This denoising effect can be quite helpful in practice. The
+core reasons for this effect are:
+
+1. the bottleneck (producing the latent representation) in the architecture
+   forces the model to generalize the input data
+2. we train using the L2 norm (or mean squared error) as the loss function,
+   this has a smoothing effect as well as the learning goal for the model is
+   effectively to produce low differences on average
 3. we use convolutions which slide across the data and hence can incur a smoothing effect
 
-If you try the last cell with different values for `index` you will also see that the autoencoder did not memorize the data or magically learned how to reproduce the denoised `clean` data.
+If you try the last cell with different values for `index` you will also see
+that the autoencoder did not memorize the data or magically learned how to
+reproduce the denoised `clean` data.
 """
 
 # %% [markdown]
 """
 ## **Exercise 04.2** MLPs for an autoencoder for good
 
-Rewrite the MyAutoencoder class to use the encoder/decoder classes which employ `torch.nn.Linear` layers only. Rerun the training with them! Do you observe a difference in the reconstruction?
+Rewrite the MyAutoencoder class to use the encoder/decoder classes which employ
+`torch.nn.Linear` layers only. Rerun the training with them! Do you observe a
+difference in the reconstruction?
 """
 
 
@@ -589,9 +642,15 @@ f.savefig("mnist1d_noisy_linear_autoencoder_training.svg")
 
 # %% [markdown] jupyter={"source_hidden": true}
 """
-Congratulations, you have successfully trained an all-linear autoencoder! You can see that the denoising effect is not as strong as with the convolutional operations. One thing is certain however, also the linear layer based autoencoder is capable of retaining the signal "peaks". Note, some generalisations based on this are premature at this point.
+Congratulations, you have successfully trained an all-linear autoencoder! You
+can see that the denoising effect is not as strong as with the convolutional
+operations. One thing is certain however, also the linear layer based
+autoencoder is capable of retaining the signal "peaks". Note, some
+generalisations based on this are premature at this point.
 
-To draw more conclusions, here are some things to try while retaining the number of parameters of both autoencoders the same:
+To draw more conclusions, here are some things to try while retaining the
+number of parameters of both autoencoders the same:
+
 - train on more data
 - use different activation functions
 - add more layers
