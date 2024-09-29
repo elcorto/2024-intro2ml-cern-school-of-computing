@@ -18,7 +18,7 @@
 # Autoencoders
 
 An autoencoder is a type of artificial neural network used for learning
-efficient codings of input data. It's essentially a network that attempts to
+efficient encodings of input data. It's essentially a network that attempts to
 replicate its input (encoding) as its output (decoding), but the network is
 designed in such a way that it must learn an efficient representation
 (compression) for the input data in order to map it back to itself.
@@ -68,7 +68,6 @@ and the noise.
 """
 
 # %%
-
 import numpy as np
 import torch
 
@@ -131,14 +130,14 @@ which are assigned to label `6`. Could you make them out by eye?
 ## Designing an autoencoder
 
 The [autoencoder architecture](https://en.wikipedia.org/wiki/Autoencoder) is
-well illustrated on wikipedia. We reproduce [the
+well illustrated on Wikipedia. We reproduce [the
 image](https://commons.wikimedia.org/wiki/File:Autoencoder_schema.png) by
 [Michaela
 Massi](https://commons.wikimedia.org/w/index.php?title=User:Michela_Massi&action=edit&redlink=1)
 here for convenience: <div style="display: block;margin-left:
 auto;margin-right: auto;width: 75%;"><img
 src="https://upload.wikimedia.org/wikipedia/commons/3/37/Autoencoder_schema.png"
-alt="autoencoder schematic from wikipedia by Michaela Massi, CC-BY 4.0"></div>
+alt="autoencoder schematic from Wikipedia by Michaela Massi, CC-BY 4.0"></div>
 
 The architecture consists of three parts:
 
@@ -146,7 +145,7 @@ The architecture consists of three parts:
    and compresses it into a smaller shape
 2. the **code** in the center: this is the "bottleneck" which holds the
    **latent representation** of your input data
-3. **the decoder** on the right: which reconstructs the output from the latent code
+3. **the decoder** on the right: reconstructs the output from the latent code
 
 The task of the autoencoder is to reconstruct the input as best as possible.
 This task is far from easy, as the autoencoder is forced to shrink the data
@@ -246,7 +245,7 @@ class MyDecoder(torch.nn.Module):
 
         for i in range(nlayers - 1):
             inchannels = 1 if i == 0 else nchannels
-            # deconvolve/Upsample and grow input width by 2x
+            # deconvolve/upsample and grow input width by 2x
             self.layers.append(
                 torch.nn.ConvTranspose1d(
                     in_channels=inchannels,
@@ -298,7 +297,7 @@ assert (
 # %% [markdown]
 """
 We have now all the lego bricks in place to compose an autoencoder. We do this
-by comining the encoder and decoder in yet another `torch.nn.Module`.
+by combining the encoder and decoder in yet another `torch.nn.Module`.
 """
 
 
@@ -537,7 +536,7 @@ f, ax = plt.subplots(1, 2, figsize=(10, 4))
 ax[0].plot(results["train_losses"], color="b", label="train")
 ax[0].plot(results["test_losses"], color="orange", label="test")
 ax[0].set_xlabel("epoch")
-ax[0].set_ylabel("avergage MSE Loss / a.u.")
+ax[0].set_ylabel("average MSE Loss / a.u.")
 ax[0].set_yscale("log")
 ax[0].set_title("Loss")
 ax[0].legend()
@@ -635,7 +634,7 @@ f, ax = plt.subplots(1, 2, figsize=(10, 4))
 ax[0].plot(lresults["train_losses"], color="b", label="train")
 ax[0].plot(lresults["test_losses"], color="orange", label="test")
 ax[0].set_xlabel("epoch")
-ax[0].set_ylabel("avergage MSE Loss / a.u.")
+ax[0].set_ylabel("average MSE Loss / a.u.")
 ax[0].set_yscale("log")
 ax[0].set_title("Loss")
 ax[0].legend()
@@ -662,7 +661,7 @@ Congratulations, you have successfully trained an all-linear autoencoder! You
 can see that the denoising effect is not as strong as with the convolutional
 operations. One thing is certain however, also the linear layer based
 autoencoder is capable of retaining the signal "peaks". Note, some
-generalisations based on this are premature at this point.
+generalizations based on this are premature at this point.
 
 To draw more conclusions, here are some things to try while retaining the
 number of parameters of both autoencoders the same:
