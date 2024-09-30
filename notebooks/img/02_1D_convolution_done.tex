@@ -54,7 +54,7 @@
       % %   \draw[thick,dashed,color=orange]  ($(xfield_li1_1.north west)$) rectangle ($(res_li1_3.south east)$);
       % %   }
         %% third line
-        
+
         \node [dashed, fill=lightgray,draw] (ghost_li2_1) at(0,0) {$0$};
         \foreach \a in {1,...,7} {
           \node [draw,name=xfield_li2_\a] at($(ghost_li2_1)+(\a*.7,0)$) {$\a$};
@@ -68,9 +68,13 @@
         % \node [draw] (res_li2_2) at($(res_li2_3)+(-.7,0)$) {-2};
         % \node [draw] (res_li2_1) at($(res_li2_2)+(-.7,0)$) {-2};
         \foreach \a in {2,...,7} {
-          \a, \node [draw,name=res_li2_\a,on chain=1] {-2};
+          \ifnum\a=7
+            \a, \node [draw,name=res_li2_\a,on chain=1] {6};
+          \else
+            \a, \node [draw,name=res_li2_\a,on chain=1] {-2};
+          \fi
         }
         \draw[thick,dashed,color=orange]  ($(xfield_li2_6.north west)$) rectangle ($(res_li2_7.south east)+(.7,0)$);
-      
+
       \end{tikzpicture}
 \end{document}
