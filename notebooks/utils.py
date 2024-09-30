@@ -3,12 +3,12 @@
 
 import numpy as np
 import torch
+import torchinfo
 from mnist1d.data import get_dataset_args, make_dataset
 from sklearn.model_selection import train_test_split
 
 
 class MNIST1D(torch.utils.data.Dataset):
-
     def __init__(
         self,
         train: bool = True,
@@ -16,7 +16,6 @@ class MNIST1D(torch.utils.data.Dataset):
         mnist1d_args: dict = get_dataset_args(),
         seed: int = 42,
     ):
-
         super().__init__()
 
         self.is_training = train
@@ -47,7 +46,6 @@ class MNIST1D(torch.utils.data.Dataset):
         return self.X.shape[0]
 
     def __getitem__(self, index: int):
-
         X = torch.from_numpy(self.X[index : index + 1, ...].astype(np.float32))
         y = torch.from_numpy(self.y[index, ...].astype(np.int64))
 
@@ -75,3 +73,9 @@ def count_params(torch_model: torch.nn.Module):
     value = sum([p.view(-1).shape[0] for p in torch_model.parameters()])
 
     return value
+
+
+def model_summary(*args, **kwds):
+    return torchinfo.summary(
+        *args, col_names=("input_size", "output_size", "num_params"), **kwds
+    )
