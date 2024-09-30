@@ -220,11 +220,8 @@ class MyEncoder(torch.nn.Module):
 # %%
 enc = MyEncoder()
 
-# convert input data to torch.Tensor
-Xt = torch.from_numpy(X)
-
-# convert to float
-Xt = Xt.float()
+# convert input data to torch.Tensor and convert to torch.float32
+Xt = torch.from_numpy(X).float()
 
 # extract only first 8 samples for testing
 Xtest = Xt[:8, ...]
@@ -331,7 +328,7 @@ class MyAutoencoder(torch.nn.Module):
 
 # %% [markdown]
 """
-We can test our autoencoder works as expected similar to what we did above.
+We can test our autoencoder to make sure it works as expected similar to what we did above.
 """
 
 # %%
@@ -345,83 +342,6 @@ print(f"autoencoder is ready to train!")
 
 print(f"{Xt[:1, ...].shape=}")
 model_summary(model, input_size=Xt[:1, ...].shape)
-
-
-# %% [markdown]
-"""
-## **Exercise 04.1** MLPs for an autoencoder
-
-We have so far built up our autoencoder with convolutional operations only. The
-same can be done with `torch.nn.Linear` layers only. **Please code an encoder
-and decoder that only require the use of `torch.nn.Linear` layers!** Keep the
-signature of the `self.__init__` methods the same.
-"""
-
-
-# %% jupyter={"source_hidden": true}
-# 04.1 Solution
-class MyLinearEncoder(torch.nn.Module):
-    def __init__(self, nlayers=3, nchannels=16, inputdim=40):
-        super().__init__()
-        self.layers = torch.nn.Sequential()
-        indim = inputdim
-
-        # shrink input width by 2x
-        outdim = inputdim // 2
-
-        for i in range(nlayers - 1):
-            self.layers.append(torch.nn.Linear(indim, outdim))
-
-            # shrink input width by 2x
-            indim = outdim
-            outdim = indim // 2
-
-            if i != (nlayers - 2):
-                self.layers.append(torch.nn.ReLU())
-
-    def forward(self, x):
-        return self.layers(x)
-
-
-class MyLinearDecoder(torch.nn.Module):
-    def __init__(self, nlayers=3, nchannels=16, inputdim=10):
-        super().__init__()
-        self.layers = torch.nn.Sequential()
-        indim = inputdim
-
-        # expand input width by 2x
-        outdim = inputdim * 2
-
-        for i in range(nlayers - 1):
-            self.layers.append(torch.nn.Linear(indim, outdim))
-
-            indim = outdim
-            # expand input width by 2x
-            outdim = indim * 2
-
-            # no relu for last layer
-            if i != (nlayers - 2):
-                self.layers.append(torch.nn.ReLU())
-
-    def forward(self, x):
-        return self.layers(x)
-
-
-lenc = MyLinearEncoder()
-ldec = MyLinearDecoder()
-
-# watch out, as we don't use convolutions, we don't need the extra dimension
-# to denominate the channel number
-Xtest_ = Xtest
-latent_h_ = lenc(Xtest_)
-assert latent_h_.shape == (
-    8,
-    10,
-), f"{latent_h_.shape} is not (8,10) as expected"
-Xtest_prime_ = ldec(latent_h_)
-assert (
-    Xtest_prime_.shape == Xtest_.shape
-), f"{Xtest_prime_.shape} != {Xtest_.shape}"
 
 
 # %% [markdown]
@@ -462,7 +382,8 @@ assert (
 ), f"number of samples for MNIST1D is not 4_000 but {nsamples}"
 
 model = MyAutoencoder(nchannels=32)
-print(f"training conv autoencoder")
+print(f"{Xt[:1, ...].shape=}")
+print(model_summary(model, input_size=Xt[:1, ...].shape))
 
 learning_rate = 1e-3
 max_epochs = 20
@@ -473,7 +394,6 @@ criterion = torch.nn.MSELoss()  # our loss function
 
 
 # %%
-# write the training loop
 def train_autoencoder(
     model,
     opt,
@@ -597,7 +517,64 @@ reproduce the denoised `clean` data.
 
 # %% [markdown]
 """
-## **Exercise 04.2** MLPs for an autoencoder for good
+## MLPs for an autoencoder
+
+We have so far built up our autoencoder with convolutional operations only. The
+same can be done with `torch.nn.Linear` layers only.
+"""
+
+
+# %%
+class MyLinearEncoder(torch.nn.Module):
+    def __init__(self, nlayers=3, nchannels=16, inputdim=40):
+        super().__init__()
+        self.layers = torch.nn.Sequential()
+        indim = inputdim
+
+        # shrink input width by 2x
+        outdim = inputdim // 2
+
+        for i in range(nlayers - 1):
+            self.layers.append(torch.nn.Linear(indim, outdim))
+
+            # shrink input width by 2x
+            indim = outdim
+            outdim = indim // 2
+
+            if i != (nlayers - 2):
+                self.layers.append(torch.nn.ReLU())
+
+    def forward(self, x):
+        return self.layers(x)
+
+
+class MyLinearDecoder(torch.nn.Module):
+    def __init__(self, nlayers=3, nchannels=16, inputdim=10):
+        super().__init__()
+        self.layers = torch.nn.Sequential()
+        indim = inputdim
+
+        # expand input width by 2x
+        outdim = inputdim * 2
+
+        for i in range(nlayers - 1):
+            self.layers.append(torch.nn.Linear(indim, outdim))
+
+            indim = outdim
+            # expand input width by 2x
+            outdim = indim * 2
+
+            # no relu for last layer
+            if i != (nlayers - 2):
+                self.layers.append(torch.nn.ReLU())
+
+    def forward(self, x):
+        return self.layers(x)
+
+
+# %% [markdown]
+"""
+## **Exercise 04.1** MLPs for an autoencoder
 
 Rewrite the MyAutoencoder class to use the encoder/decoder classes which employ
 `torch.nn.Linear` layers only. Rerun the training with them! Do you observe a
@@ -606,7 +583,7 @@ difference in the reconstruction?
 
 
 # %% jupyter={"source_hidden": true}
-# 04.2 Solution
+# 04.1 Solution
 class MyLinearAutoencoder(torch.nn.Module):
     def __init__(self, nlayers=3, nchannels=16):
         super().__init__()
@@ -626,8 +603,12 @@ class MyLinearAutoencoder(torch.nn.Module):
 
 # setup model and optimizer
 lmodel = MyLinearAutoencoder(nchannels=32)
-print(f"training dense autoencoder")
 
+print(f"{Xt[:1, ...].shape=}")
+model_summary(lmodel, input_size=Xt[:1, ...].shape)
+
+
+# %%
 loptimizer = torch.optim.AdamW(lmodel.parameters(), lr=learning_rate)
 
 # run training
