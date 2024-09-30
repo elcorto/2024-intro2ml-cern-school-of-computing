@@ -447,7 +447,7 @@ def train_autoencoder(
         results["train_losses"].append(train_loss.mean())
         results["test_losses"].append(test_loss.mean())
 
-        if epoch % log_every == 0 or (epoch + 1) == max_epochs:
+        if (epoch + 1) % log_every == 0 or (epoch + 1) == max_epochs:
             print(
                 f"{epoch+1:02.0f}/{max_epochs} :: training loss {train_loss.mean():03.4f}; test loss {test_loss.mean():03.4f}"
             )
