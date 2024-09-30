@@ -517,151 +517,19 @@ reproduce the denoised `clean` data.
 
 # %% [markdown]
 """
-## MLPs for an autoencoder
+## **Exercise 04.1** Vary autoencoder hyper-parameters
 
-We have so far built up our autoencoder with convolutional operations only. The
-same can be done with `torch.nn.Linear` layers only.
-"""
-
-
-# %%
-class MyLinearEncoder(torch.nn.Module):
-    def __init__(self, nlayers=3, nchannels=16, inputdim=40):
-        super().__init__()
-        self.layers = torch.nn.Sequential()
-        indim = inputdim
-
-        # shrink input width by 2x
-        outdim = inputdim // 2
-
-        for i in range(nlayers - 1):
-            self.layers.append(torch.nn.Linear(indim, outdim))
-
-            # shrink input width by 2x
-            indim = outdim
-            outdim = indim // 2
-
-            if i != (nlayers - 2):
-                self.layers.append(torch.nn.ReLU())
-
-    def forward(self, x):
-        return self.layers(x)
+In the cells above, vary the following parameters and observe there effect on
+the reconstruction:
 
 
-class MyLinearDecoder(torch.nn.Module):
-    def __init__(self, nlayers=3, nchannels=16, inputdim=10):
-        super().__init__()
-        self.layers = torch.nn.Sequential()
-        indim = inputdim
+Model architecture:
 
-        # expand input width by 2x
-        outdim = inputdim * 2
+* nchannels
+* nlayers (bigger means smaller latent space size)
 
-        for i in range(nlayers - 1):
-            self.layers.append(torch.nn.Linear(indim, outdim))
+Training:
 
-            indim = outdim
-            # expand input width by 2x
-            outdim = indim * 2
-
-            # no relu for last layer
-            if i != (nlayers - 2):
-                self.layers.append(torch.nn.ReLU())
-
-    def forward(self, x):
-        return self.layers(x)
-
-
-# %% [markdown]
-"""
-## **Exercise 04.1** MLPs for an autoencoder
-
-Rewrite the MyAutoencoder class to use the encoder/decoder classes which employ
-`torch.nn.Linear` layers only. Rerun the training with them! Do you observe a
-difference in the reconstruction?
-"""
-
-
-# %% jupyter={"source_hidden": true}
-# 04.1 Solution
-class MyLinearAutoencoder(torch.nn.Module):
-    def __init__(self, nlayers=3, nchannels=16):
-        super().__init__()
-
-        self.enc = MyLinearEncoder(nlayers, nchannels)
-        self.dec = MyLinearDecoder(nlayers, nchannels)
-
-    def forward(self, x):
-        # construct the latents
-        h = self.enc(x)
-
-        # perform reconstruction
-        x_prime = self.dec(h)
-
-        return x_prime
-
-
-# setup model and optimizer
-lmodel = MyLinearAutoencoder(nchannels=32)
-
-print(f"{Xt[:1, ...].shape=}")
-model_summary(lmodel, input_size=Xt[:1, ...].shape)
-
-
-# %%
-loptimizer = torch.optim.AdamW(lmodel.parameters(), lr=learning_rate)
-
-# run training
-lresults = train_autoencoder(
-    lmodel,
-    loptimizer,
-    criterion,
-    train_dataloaders,
-    test_dataloaders,
-    max_epochs,
-    log_every,
-)
-
-# viz the results
-fig, ax = plt.subplots(1, 2, figsize=(10, 4))
-
-ax[0].plot(lresults["train_losses"], color="b", label="train")
-ax[0].plot(lresults["test_losses"], color="orange", label="test")
-ax[0].set_xlabel("epoch")
-ax[0].set_ylabel("average MSE Loss / a.u.")
-ax[0].set_yscale("log")
-ax[0].set_title("Loss")
-ax[0].legend()
-
-# perform prediction again
-last_x_prime = lmodel(last_x.unsqueeze(0))
-
-# prepare tensors for plotting
-last_out = last_x_prime.detach().squeeze().numpy()
-
-ax[1].plot(last_in, color="b", label="test input")
-ax[1].plot(last_out, color="orange", label="test prediction")
-ax[1].plot(clean_in, color="green", linestyle="--", label="clean")
-ax[1].set_xlabel("samples / a.u.")
-ax[1].set_ylabel("intensity / a.u.")
-ax[1].set_title(f"Linear Autoencoder, label = {last_y.detach().item()}")
-ax[1].legend()
-
-fig.savefig("mnist1d_noisy_linear_autoencoder_training.svg")
-
-# %% [markdown] jupyter={"source_hidden": true}
-"""
-Congratulations, you have successfully trained an all-linear autoencoder! You
-can see that the denoising effect is not as strong as with the convolutional
-operations. One thing is certain however, also the linear layer based
-autoencoder is capable of retaining the signal "peaks". Note, some
-generalizations based on this are premature at this point.
-
-To draw more conclusions, here are some things to try while retaining the
-number of parameters of both autoencoders the same:
-
-- train on more data
-- use different activation functions
-- add more layers
-- optimize the hyperparameters for training (learning_rate, number of epochs, ...)
+* learning_rate
+* max_epochs
 """
