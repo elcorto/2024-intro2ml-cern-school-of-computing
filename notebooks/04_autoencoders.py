@@ -71,6 +71,8 @@ and the noise.
 import numpy as np
 import torch
 
+from utils import model_summary
+
 np.random.seed(13)
 torch.random.manual_seed(12)
 
@@ -93,6 +95,10 @@ noisy_config.seed = 40
 data = make_dataset(noisy_config)
 
 X, y = data["x"], data["y"]
+
+# 4000 data points of dimension 40
+print(f"{X.shape=}")
+print(f"{y.shape=}")
 
 # %% [markdown]
 """
@@ -124,8 +130,8 @@ fig.savefig("mnist1d_noisy_first10.svg")
 # %% [markdown]
 """
 As we can see, the data is filled with jitter. Furthermore, it is interesting
-to note, that our dataset is still far from trivial. Have a look at all signals
-which are assigned to label `6`. Could you make them out by eye?
+to note that our dataset is still far from trivial. Have a look at all signals
+which are assigned to a certain label. Could you detect them?
 
 ## Designing an autoencoder
 
@@ -152,10 +158,8 @@ This task is far from easy, as the autoencoder is forced to shrink the data
 into the latent space.
 """
 
+
 # %%
-from utils import count_params
-
-
 class MyEncoder(torch.nn.Module):
     def __init__(self, nlayers=3, nchannels=16):
         super().__init__()
@@ -215,12 +219,13 @@ class MyEncoder(torch.nn.Module):
 
 # %%
 enc = MyEncoder()
-print(f"constructed encoder with {count_params(enc)} parameters")
 
 # convert input data to torch.Tensor
 Xt = torch.from_numpy(X)
+
 # convert to float
 Xt = Xt.float()
+
 # extract only first 8 samples for testing
 Xtest = Xt[:8, ...]
 
@@ -229,6 +234,9 @@ latent_h = enc(Xtest)
 assert (
     latent_h.shape[-1] < Xtest.shape[-1]
 ), f"{latent_h.shape[-1]} !< {Xtest.shape[-1]}"
+
+print(f"{Xt[:1, ...].shape=}")
+model_summary(enc, input_size=Xt[:1, ...].shape)
 
 # %% [markdown]
 """
@@ -287,12 +295,14 @@ class MyDecoder(torch.nn.Module):
 
 # %%
 dec = MyDecoder()
-print(f"constructed decoder with {count_params(dec)} parameters")
 
 Xt_prime = dec(latent_h)
 assert (
     Xt_prime.squeeze(1).shape == Xtest.shape
 ), f"{Xt_prime.squeeze(1).shape} != {Xtest.shape}"
+
+print(f"{latent_h[:1, ...].shape=}")
+model_summary(dec, input_size=latent_h[:1, ...].shape)
 
 # %% [markdown]
 """
@@ -332,6 +342,10 @@ assert (
     Xt_prime.squeeze(1).shape == Xtest.shape
 ), f"{Xt_prime.squeeze(1).shape} != {Xtest.shape}"
 print(f"autoencoder is ready to train!")
+
+print(f"{Xt[:1, ...].shape=}")
+model_summary(model, input_size=Xt[:1, ...].shape)
+
 
 # %% [markdown]
 """
@@ -395,8 +409,6 @@ class MyLinearDecoder(torch.nn.Module):
 
 lenc = MyLinearEncoder()
 ldec = MyLinearDecoder()
-# uncomment the following line if you like to know the number of parameters
-# print(f"constructed encoder ({count_params(lenc)} parameters) and decoder ({count_params(ldec)} parameters)")
 
 # watch out, as we don't use convolutions, we don't need the extra dimension
 # to denominate the channel number
@@ -410,6 +422,7 @@ Xtest_prime_ = ldec(latent_h_)
 assert (
     Xtest_prime_.shape == Xtest_.shape
 ), f"{Xtest_prime_.shape} != {Xtest_.shape}"
+
 
 # %% [markdown]
 """
@@ -449,7 +462,7 @@ assert (
 ), f"number of samples for MNIST1D is not 4_000 but {nsamples}"
 
 model = MyAutoencoder(nchannels=32)
-print(f"training conv autoencoder with {count_params(model)} parameters")
+print(f"training conv autoencoder")
 
 learning_rate = 1e-3
 max_epochs = 20
@@ -613,7 +626,7 @@ class MyLinearAutoencoder(torch.nn.Module):
 
 # setup model and optimizer
 lmodel = MyLinearAutoencoder(nchannels=32)
-print(f"training dense autoencoder with {count_params(lmodel)} parameters")
+print(f"training dense autoencoder")
 
 loptimizer = torch.optim.AdamW(lmodel.parameters(), lr=learning_rate)
 
