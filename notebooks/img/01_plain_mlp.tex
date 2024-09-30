@@ -36,9 +36,9 @@
 % preamble
 %\providecommand{\hidText}[1]{$H_{#1}$}%
 \makeatletter
-\newcommand{\tikzANN@InputLayerTitle}{Input\\Layer\\[4pt]$\vec{x}$}%
-\newcommand{\tikzANN@HiddenLayerTitle}{Hidden\\Layer\\[4pt]$\vec{h}$}%
-\newcommand{\tikzANN@OutputLayerTitle}{Output\\Layer\\[4pt]$\vec{\hat{y}}$}%
+\newcommand{\tikzANN@InputLayerTitle}{Input\\Layer\\[4pt]$x$}%
+\newcommand{\tikzANN@HiddenLayerTitle}{Hidden\\Layer\\[4pt]$h$}%
+\newcommand{\tikzANN@OutputLayerTitle}{Output\\Layer\\[4pt]$\hat{y}$}%
 \providecommand{\tikzANNInputLayerTitle} {\tikzANN@InputLayerTitle}%
 \providecommand{\tikzANNHiddenLayerTitle}{\tikzANN@HiddenLayerTitle}%
 \providecommand{\tikzANNOutputLayerTitle}{\tikzANN@OutputLayerTitle}%
@@ -65,15 +65,15 @@
   \node[inNeuron, below=of in 0] (in 1) {\inText{1}};
   \node[inNeuron, below=of in 1] (in 2) {\inText{2}};
 
-  \node[hiddenNeuron, right=6em of in 0] (hid 0) {\hidText{0}}; 
-  \node[hiddenNeuron, right=6em of in 1] (hid 1) {\hidText{1}}; 
-  \node[hiddenNeuron, right=6em of in 2] (hid 2) {\hidText{2}}; 
+  \node[hiddenNeuron, right=6em of in 0] (hid 0) {\hidText{0}};
+  \node[hiddenNeuron, right=6em of in 1] (hid 1) {\hidText{1}};
+  \node[hiddenNeuron, right=6em of in 2] (hid 2) {\hidText{2}};
 
   \node[inner sep=0em,outer sep=0em, fit=(hid 0) (hid 1)] (hidG 01) {};
   \node[inner sep=0em,outer sep=0em, fit=(hid 2) (hid 1)] (hidG 12) {};
 
-  \node[outNeuron, right=6em of hidG 01] (out 0) {\outText{0}}; 
-  \node[outNeuron, right=6em of hidG 12] (out 1) {\outText{1}}; 
+  \node[outNeuron, right=6em of hidG 01] (out 0) {\outText{0}};
+  \node[outNeuron, right=6em of hidG 12] (out 1) {\outText{1}};
 
   \foreach \a in {0,...,2} {
    \foreach \s in {0,...,2} {
