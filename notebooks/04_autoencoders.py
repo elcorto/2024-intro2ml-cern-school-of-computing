@@ -495,6 +495,7 @@ def train_autoencoder(
         device = torch.device("cpu")
 
     model = model.to(device)
+    model.train()
 
     for epoch in range(max_epochs):
         # perform train for one epoch
@@ -558,6 +559,7 @@ results = train_autoencoder(
 )
 
 model = model.cpu()
+model.eval()
 
 # %% [markdown]
 """
