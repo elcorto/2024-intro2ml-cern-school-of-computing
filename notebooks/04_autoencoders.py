@@ -213,8 +213,9 @@ class MyEncoder(torch.nn.Module):
         # inputs of size (nbatch, 40) do not work,
         # inputs of size (nbatch, 1, 40) do work
         if len(x.shape) == 2:
-            x = torch.unsqueeze(x, dim=1)
-        return self.layers(x)
+            return self.layers(torch.unsqueeze(x, dim=1))
+        else:
+            return self.layers(x)
 
 
 # %%
@@ -287,9 +288,9 @@ class MyDecoder(torch.nn.Module):
         # inputs of size (nbatch, 40) do not work,
         # inputs of size (nbatch, 1, 40) do work
         if len(x.shape) == 2:
-            x = torch.unsqueeze(x, dim=1)
-
-        return self.layers(x)
+            return self.layers(torch.unsqueeze(x, dim=1))
+        else:
+            return self.layers(x)
 
 
 # %%
