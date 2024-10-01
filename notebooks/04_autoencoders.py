@@ -622,25 +622,26 @@ We can see that the autoencoder smoothed the input signal when producing a
 reconstruction. This denoising effect can be quite helpful in practice. The
 core reasons for this effect are:
 
-1. the bottleneck (producing the latent representation) in the architecture
-   forces the model to generalize the input data
-2. we train using the L2 norm (or mean squared error) as the loss function,
+1. The bottleneck (producing the latent representation) in the architecture
+   forces the model to generalize the input data.
+2. We train using the mean squared error as the loss function,
    this has a smoothing effect as well as the learning goal for the model is
-   effectively to produce low differences on average
-3. we use convolutions which slide across the data and hence can incur a smoothing effect
-
-If you try the last cell with different values for `index` you will also see
-that the autoencoder did not memorize the data or magically learned how to
-reproduce the denoised `clean` data.
+   effectively to produce low differences on average.
+3. We use convolutions which slide across the data and hence can incur a
+   smoothing effect.
 """
 
 # %% [markdown]
 """
 ## **Exercise 04.1** Vary autoencoder hyper-parameters
 
-In the cells above, vary the following parameters and observe there effect on
-the reconstruction:
+The model predictions are actually not very good -- too much smoothing in some
+parts of a signal, following the input signal too much in other parts. The same
+could probably be acheived by a much simpler method such as a moving average :)
 
+Try to improve this by varying the following parameters and observe their
+effect on the reconstruction. Re-execute the cells above which define the model,
+set the hyper-parameters and run the training.
 
 Model architecture:
 
