@@ -279,6 +279,8 @@ class MyDecoder(torch.nn.Module):
             )
         )
 
+        self.layers.append(torch.nn.Flatten())
+
     def forward(self, x):
         # convolutions in torch require an explicit channel dimension to be
         # present in the data in other words:
