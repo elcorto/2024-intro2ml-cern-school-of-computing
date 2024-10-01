@@ -112,12 +112,14 @@ Now, let's plot the data which we would like to use.
 
 # %%
 fig, ax = plt.subplots(2, 5, figsize=(14, 5), sharex=True, sharey=True)
+color_noisy = "tab:blue"
+color_clean = "tab:orange"
 
 for sample in range(10):
     col = sample % 5
     row = sample // 5
-    ax[row, col].plot(X[sample, ...], label="noisy")
-    ax[row, col].plot(cleanX[sample, ...], label="clean", color="green")
+    ax[row, col].plot(X[sample, ...], label="noisy", color=color_noisy)
+    ax[row, col].plot(cleanX[sample, ...], label="clean", color=color_clean)
     label = y[sample]
     ax[row, col].set_title(f"label {label}")
     if row == 1:
@@ -526,9 +528,11 @@ with torch.no_grad():
     X_test_clean, _ = dataset_test_clean[index]
     print(f"{X_test_clean.shape=}")
 
-ax[1].plot(X_test_noisy.squeeze(), color="b", label="test input")
-ax[1].plot(X_prime_test.squeeze(), color="orange", label="test prediction")
-ax[1].plot(X_test_clean.squeeze(), color="green", linestyle="--", label="clean")
+ax[1].plot(X_test_noisy.squeeze(), color=color_noisy, label="test input")
+ax[1].plot(X_prime_test.squeeze(), color="tab:red", label="test prediction")
+ax[1].plot(
+    X_test_clean.squeeze(), color=color_clean, linestyle="--", label="clean"
+)
 ax[1].set_xlabel("samples / a.u.")
 ax[1].set_ylabel("intensity / a.u.")
 ax[1].set_title(f"Conv-based Autoencoder, label = {y_test_noisy}")
