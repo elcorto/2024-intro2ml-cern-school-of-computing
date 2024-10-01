@@ -68,6 +68,8 @@ and the noise.
 """
 
 # %%
+from typing import Sequence
+
 import numpy as np
 import torch
 
@@ -365,21 +367,28 @@ from torch.utils.data import DataLoader
 from utils import MNIST1D
 
 # noisy data
-training_noisy = MNIST1D(mnist1d_args=noisy_config, train=True)
+train_noisy = MNIST1D(mnist1d_args=noisy_config, train=True)
 test_noisy = MNIST1D(mnist1d_args=noisy_config, train=False)
 
 # clean data
-training_clean = MNIST1D(mnist1d_args=clean_config, train=True)
+train_clean = MNIST1D(mnist1d_args=clean_config, train=True)
 test_clean = MNIST1D(mnist1d_args=clean_config, train=False)
 
-# stacked as paired sequences
-training_data = torch.utils.data.StackDataset(training_noisy, training_clean)
+# stacked as paired sequences, like Python's zip()
+train_data = torch.utils.data.StackDataset(train_noisy, train_clean)
 test_data = torch.utils.data.StackDataset(test_noisy, test_clean)
 
-train_dataloaders = DataLoader(training_data, batch_size=64, shuffle=True)
+##X_train = torch.from_numpy(train_noisy.X).float()
+##Y_train = torch.from_numpy(train_clean.X).float()
+##X_test = torch.from_numpy(test_noisy.X).float()
+##Y_test = torch.from_numpy(test_clean.X).float()
+##train_data = torch.utils.data.TensorDataset(X_train, Y_train)
+##test_data = torch.utils.data.TensorDataset(X_test, Y_test)
+
+train_dataloaders = DataLoader(train_data, batch_size=64, shuffle=True)
 test_dataloaders = DataLoader(test_data, batch_size=64, shuffle=True)
 
-nsamples = len(training_noisy) + len(test_noisy)
+nsamples = len(train_noisy) + len(test_noisy)
 assert (
     nsamples == 4_000
 ), f"number of samples for MNIST1D is not 4_000 but {nsamples}"
@@ -410,22 +419,27 @@ def train_autoencoder(
     ntrainsteps = len(train_dataloader)
     nteststeps = len(test_dataloader)
     train_loss, test_loss = (
-        torch.zeros((ntrainsteps,)),
-        torch.zeros((nteststeps,)),
+        torch.empty((ntrainsteps,)),
+        torch.empty((nteststeps,)),
     )
 
     for epoch in range(max_epochs):
-        # perform training for one epoch
-        for idx, (noisy, clean) in enumerate(train_dataloader):
-            # we discard the labels by assigning them to _
-            noisy_x, _ = noisy
-            clean_x, _ = clean
+        # perform train for one epoch
+        for idx, (train_noisy, train_clean) in enumerate(train_dataloader):
+
+            # Discard labels if using StackDataset
+            if isinstance(train_noisy, Sequence):
+                train_noisy_x = train_noisy[0]
+                train_clean_x = train_clean[0]
+            else:
+                train_noisy_x = train_noisy
+                train_clean_x = train_clean
 
             # forward pass
-            X_prime = model(noisy_x)
+            X_prime = model(train_noisy_x)
 
             # compute loss
-            loss = crit(X_prime, clean_x)
+            loss = crit(X_prime, train_clean_x)
 
             # compute gradient
             loss.backward()
@@ -439,9 +453,14 @@ def train_autoencoder(
             train_loss[idx] = loss.item()
 
         for idx, (test_noisy, test_clean) in enumerate(test_dataloader):
-            # we discard the labels by assigning them to _
-            test_noisy_x, _ = noisy
-            test_clean_x, _ = clean
+
+            # Discard labels if using StackDataset
+            if isinstance(test_noisy, Sequence):
+                test_noisy_x = test_noisy[0]
+                test_clean_x = test_clean[0]
+            else:
+                test_noisy_x = test_noisy
+                test_clean_x = test_clean
 
             X_prime_test = model(test_noisy_x)
             loss_ = crit(X_prime_test, test_clean_x)
