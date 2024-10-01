@@ -375,11 +375,20 @@ dataset_train_clean = MNIST1D(mnist1d_args=clean_config, train=True)
 dataset_test_clean = MNIST1D(mnist1d_args=clean_config, train=False)
 
 # stacked as paired sequences, like Python's zip()
-dataset_train = torch.utils.data.StackDataset(dataset_train_noisy, dataset_train_clean)
-dataset_test = torch.utils.data.StackDataset(dataset_test_noisy, dataset_test_clean)
+dataset_train = torch.utils.data.StackDataset(
+    dataset_train_noisy, dataset_train_clean
+)
+dataset_test = torch.utils.data.StackDataset(
+    dataset_test_noisy, dataset_test_clean
+)
 
-train_dataloader = DataLoader(dataset_train, batch_size=64, shuffle=True)
-test_dataloader = DataLoader(dataset_test, batch_size=64, shuffle=False)
+batch_size = 64
+train_dataloader = DataLoader(
+    dataset_train, batch_size=batch_size, shuffle=True
+)
+test_dataloader = DataLoader(
+    dataset_test, batch_size=batch_size, shuffle=False
+)
 
 # %% [markdown]
 #
