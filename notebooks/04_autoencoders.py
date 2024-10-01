@@ -83,7 +83,6 @@ np.random.seed(13)
 torch.random.manual_seed(12)
 
 # %%
-
 # disable noise for a clear reference
 clean_config = get_dataset_args()
 clean_config.iid_noise_scale = 0
@@ -365,7 +364,6 @@ Training the autoencoder works in the same line as training for regression from 
 """
 
 # %%
-
 # noisy data
 dataset_train_noisy = MNIST1D(mnist1d_args=noisy_config, train=True)
 dataset_test_noisy = MNIST1D(mnist1d_args=noisy_config, train=False)
@@ -396,7 +394,7 @@ test_dataloader = DataLoader(
 # of data.
 
 # %%
-train_noisy, train_clean = list(train_dataloader)[0]
+train_noisy, train_clean = next(iter(train_dataloader))
 print(f"{len(train_noisy)=} {len(train_clean)=}")
 X_train_noisy, y_train_noisy = train_noisy
 X_train_clean, y_train_clean = train_clean
@@ -428,14 +426,13 @@ ncols` batches, and in each batch, plot noisy and clean data for
 grid = gridspec.GridSpec(nrows=3, ncols=4)
 fig = plt.figure(figsize=(5 * grid.ncols, 5 * grid.nrows))
 
-idx_in_batch = 23
+idx_in_batch = 12
 
 for batch_idx, (gs, (train_noisy, train_clean)) in enumerate(
     zip(grid, train_dataloader)
 ):
     X_train_noisy, y_train_noisy = train_noisy
     X_train_clean, y_train_clean = train_clean
-    assert len(y_train_noisy) == batch_size
     assert (y_train_noisy == y_train_clean).all()
     ax = fig.add_subplot(gs)
     ax.plot(
@@ -461,7 +458,9 @@ assert (
 
 model = MyAutoencoder(nchannels=32)
 print(f"{Xt[:1, ...].shape=}")
-print(model_summary(model, input_size=X_train_noisy.shape))
+print(
+    model_summary(model, input_size=next(iter(train_dataloader))[0][0].shape)
+)
 
 learning_rate = 1e-3
 max_epochs = 20
@@ -500,7 +499,6 @@ def train_autoencoder(
     for epoch in range(max_epochs):
         # perform train for one epoch
         for idx, (train_noisy, train_clean) in enumerate(train_dataloader):
-
             # Discard labels if using StackDataset
             if isinstance(train_noisy, Sequence):
                 X_train_noisy = train_noisy[0]
@@ -527,7 +525,6 @@ def train_autoencoder(
             train_loss[idx] = loss.item()
 
         for idx, (test_noisy, test_clean) in enumerate(test_dataloader):
-
             # Discard labels if using StackDataset
             if isinstance(test_noisy, Sequence):
                 X_test_noisy = test_noisy[0]
