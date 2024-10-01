@@ -559,40 +559,62 @@ results = train_autoencoder(
 
 model = model.cpu()
 
-# %%
-fig, ax = plt.subplots(1, 2, figsize=(10, 4))
+# %% [markdown]
+"""
+# Plot loss (train progress) and predictions
+"""
 
-ax[0].plot(results["train_losses"], color="b", label="train")
-ax[0].plot(results["test_losses"], color="orange", label="test")
-ax[0].set_xlabel("epoch")
-ax[0].set_ylabel("average MSE Loss / a.u.")
-ax[0].set_yscale("log")
-ax[0].set_title("Loss")
-ax[0].legend()
+# %%
+fig, ax = plt.subplots()
+ax.plot(results["train_losses"], color="b", label="train")
+ax.plot(results["test_losses"], color="orange", label="test")
+ax.set_xlabel("epoch")
+ax.set_ylabel("average MSE Loss / a.u.")
+ax.set_yscale("log")
+ax.set_title("Loss")
+ax.legend()
+fig.savefig("mnist1d_noisy_conv_autoencoder_loss.svg")
+
 
 with torch.no_grad():
-    index = 0
+    grid = gridspec.GridSpec(nrows=3, ncols=4)
+    fig = plt.figure(figsize=(5 * grid.ncols, 5 * grid.nrows))
 
-    # perform prediction again
-    X_test_noisy, y_test_noisy = dataset_test_noisy[index]
-    X_prime_test = model(X_test_noisy)
-    print(f"{X_test_noisy.shape=}")
-    print(f"{X_prime_test.shape=}")
+    for batch_idx, (gs, (test_noisy, test_clean)) in enumerate(
+        zip(grid, test_dataloader)
+    ):
+        X_test_noisy, y_test_noisy = test_noisy
+        X_test_clean, y_test_clean = test_clean
+        assert (y_test_noisy == y_test_clean).all()
+        ax = fig.add_subplot(gs)
+        idx_in_batch = np.random.randint(0, len(y_test_noisy))
+        ax.plot(
+            X_test_noisy[idx_in_batch].squeeze(),
+            label="noisy",
+            color=color_noisy,
+        )
+        ax.plot(
+            X_test_clean[idx_in_batch].squeeze(),
+            label="clean",
+            color=color_clean,
+        )
+        ax.plot(
+            model(X_test_noisy[idx_in_batch]).squeeze(),
+            label="prediction",
+            color="tab:red",
+            lw=2,
+        )
+        title = "\n".join(
+            (
+                f"batch={batch_idx+1} {idx_in_batch=}",
+                f"labels: noisy={y_test_noisy[idx_in_batch]} clean={y_test_clean[idx_in_batch]}",
+            )
+        )
+        ax.set_title(title)
+        ax.legend()
 
-    X_test_clean, _ = dataset_test_clean[index]
-    print(f"{X_test_clean.shape=}")
+fig.savefig("mnist1d_noisy_conv_autoencoder_predictions.svg")
 
-ax[1].plot(X_test_noisy.squeeze(), color=color_noisy, label="test input")
-ax[1].plot(X_prime_test.squeeze(), color="tab:red", label="test prediction")
-ax[1].plot(
-    X_test_clean.squeeze(), color=color_clean, linestyle="--", label="clean"
-)
-ax[1].set_xlabel("samples / a.u.")
-ax[1].set_ylabel("intensity / a.u.")
-ax[1].set_title(f"Conv-based Autoencoder, label = {y_test_noisy}")
-ax[1].legend()
-
-fig.savefig("mnist1d_noisy_conv_autoencoder_training.svg")
 
 # %% [markdown]
 """
