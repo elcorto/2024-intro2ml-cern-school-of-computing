@@ -72,14 +72,17 @@ from typing import Sequence
 
 import numpy as np
 import torch
+from torch.utils.data import DataLoader
+from matplotlib import gridspec, pyplot as plt
 
-from utils import model_summary
+from mnist1d.data import get_dataset_args, make_dataset
+
+from utils import model_summary, MNIST1D
 
 np.random.seed(13)
 torch.random.manual_seed(12)
 
 # %%
-from mnist1d.data import get_dataset_args, make_dataset
 
 # disable noise for a clear reference
 clean_config = get_dataset_args()
@@ -108,8 +111,6 @@ Now, let's plot the data which we would like to use.
 """
 
 # %%
-import matplotlib.pyplot as plt
-
 fig, ax = plt.subplots(2, 5, figsize=(14, 5), sharex=True, sharey=True)
 
 for sample in range(10):
@@ -362,8 +363,6 @@ Training the autoencoder works in the same line as training for regression from 
 """
 
 # %%
-from torch.utils.data import DataLoader
-from utils import MNIST1D
 
 # noisy data
 dataset_train_noisy = MNIST1D(mnist1d_args=noisy_config, train=True)
