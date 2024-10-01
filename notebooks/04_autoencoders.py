@@ -480,6 +480,7 @@ def train_autoencoder(
     test_dataloader,
     max_epochs,
     log_every=5,
+    use_gpu=False,
 ):
     results = {"train_losses": [], "test_losses": []}
     ntrainsteps = len(train_dataloader)
@@ -488,6 +489,13 @@ def train_autoencoder(
         torch.empty((ntrainsteps,)),
         torch.empty((nteststeps,)),
     )
+
+    if use_gpu and torch.cuda.is_available():
+        device = torch.device("cuda:0")
+    else:
+        device = torch.device("cpu")
+
+    model = model.to(device)
 
     for epoch in range(max_epochs):
         # perform train for one epoch
@@ -502,10 +510,10 @@ def train_autoencoder(
                 X_train_clean = train_clean
 
             # forward pass
-            X_prime_train = model(X_train_noisy)
+            X_prime_train = model(X_train_noisy.to(device))
 
             # compute loss
-            loss = crit(X_prime_train, X_train_clean.squeeze())
+            loss = crit(X_prime_train, X_train_clean.squeeze().to(device))
 
             # compute gradient
             loss.backward()
@@ -528,8 +536,8 @@ def train_autoencoder(
                 X_test_noisy = test_noisy
                 X_test_clean = test_clean
 
-            X_prime_test = model(X_test_noisy)
-            loss_ = crit(X_prime_test, X_test_clean.squeeze())
+            X_prime_test = model(X_test_noisy.to(device))
+            loss_ = crit(X_prime_test, X_test_clean.squeeze().to(device))
             test_loss[idx] = loss_.item()
 
         results["train_losses"].append(train_loss.mean())
@@ -543,7 +551,7 @@ def train_autoencoder(
 
 
 results = train_autoencoder(
-    model.to("cpu"),
+    model,
     optimizer,
     criterion,
     train_dataloader,
@@ -551,6 +559,9 @@ results = train_autoencoder(
     max_epochs,
     log_every,
 )
+
+model = model.cpu()
+
 # %%
 fig, ax = plt.subplots(1, 2, figsize=(10, 4))
 
