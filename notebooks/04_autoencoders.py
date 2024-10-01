@@ -343,7 +343,6 @@ Xt_prime = model(Xtest)
 assert (
     Xt_prime.squeeze(1).shape == Xtest.shape
 ), f"{Xt_prime.squeeze(1).shape} != {Xtest.shape}"
-print(f"autoencoder is ready to train!")
 
 print(f"{Xt[:1, ...].shape=}")
 model_summary(model, input_size=Xt[:1, ...].shape)
@@ -367,35 +366,32 @@ from torch.utils.data import DataLoader
 from utils import MNIST1D
 
 # noisy data
-train_noisy = MNIST1D(mnist1d_args=noisy_config, train=True)
-test_noisy = MNIST1D(mnist1d_args=noisy_config, train=False)
+dataset_train_noisy = MNIST1D(mnist1d_args=noisy_config, train=True)
+dataset_test_noisy = MNIST1D(mnist1d_args=noisy_config, train=False)
 
 # clean data
-train_clean = MNIST1D(mnist1d_args=clean_config, train=True)
-test_clean = MNIST1D(mnist1d_args=clean_config, train=False)
+dataset_train_clean = MNIST1D(mnist1d_args=clean_config, train=True)
+dataset_test_clean = MNIST1D(mnist1d_args=clean_config, train=False)
 
 # stacked as paired sequences, like Python's zip()
-train_data = torch.utils.data.StackDataset(train_noisy, train_clean)
-test_data = torch.utils.data.StackDataset(test_noisy, test_clean)
+dataset_train = torch.utils.data.StackDataset(dataset_train_noisy, dataset_train_clean)
+dataset_test = torch.utils.data.StackDataset(dataset_test_noisy, dataset_test_clean)
 
-##X_train = torch.from_numpy(train_noisy.X).float()
-##Y_train = torch.from_numpy(train_clean.X).float()
-##X_test = torch.from_numpy(test_noisy.X).float()
-##Y_test = torch.from_numpy(test_clean.X).float()
-##train_data = torch.utils.data.TensorDataset(X_train, Y_train)
-##test_data = torch.utils.data.TensorDataset(X_test, Y_test)
+train_dataloader = DataLoader(dataset_train, batch_size=64, shuffle=True)
+test_dataloader = DataLoader(dataset_test, batch_size=64, shuffle=True)
 
 train_dataloaders = DataLoader(train_data, batch_size=64, shuffle=True)
 test_dataloaders = DataLoader(test_data, batch_size=64, shuffle=True)
 
-nsamples = len(train_noisy) + len(test_noisy)
+# %%
+nsamples = len(dataset_train_noisy) + len(dataset_test_noisy)
 assert (
     nsamples == 4_000
 ), f"number of samples for MNIST1D is not 4_000 but {nsamples}"
 
 model = MyAutoencoder(nchannels=32)
 print(f"{Xt[:1, ...].shape=}")
-print(model_summary(model, input_size=Xt[:1, ...].shape))
+print(model_summary(model, input_size=X_train_noisy.shape))
 
 learning_rate = 1e-3
 max_epochs = 20
@@ -429,17 +425,17 @@ def train_autoencoder(
 
             # Discard labels if using StackDataset
             if isinstance(train_noisy, Sequence):
-                train_noisy_x = train_noisy[0]
-                train_clean_x = train_clean[0]
+                X_train_noisy = train_noisy[0]
+                X_train_clean = train_clean[0]
             else:
-                train_noisy_x = train_noisy
-                train_clean_x = train_clean
+                X_train_noisy = train_noisy
+                X_train_clean = train_clean
 
             # forward pass
-            X_prime = model(train_noisy_x)
+            X_prime_train = model(X_train_noisy)
 
             # compute loss
-            loss = crit(X_prime, train_clean_x)
+            loss = crit(X_prime_train, X_train_clean.squeeze())
 
             # compute gradient
             loss.backward()
@@ -456,14 +452,14 @@ def train_autoencoder(
 
             # Discard labels if using StackDataset
             if isinstance(test_noisy, Sequence):
-                test_noisy_x = test_noisy[0]
-                test_clean_x = test_clean[0]
+                X_test_noisy = test_noisy[0]
+                X_test_clean = test_clean[0]
             else:
-                test_noisy_x = test_noisy
-                test_clean_x = test_clean
+                X_test_noisy = test_noisy
+                X_test_clean = test_clean
 
-            X_prime_test = model(test_noisy_x)
-            loss_ = crit(X_prime_test, test_clean_x)
+            X_prime_test = model(X_test_noisy)
+            loss_ = crit(X_prime_test, X_test_clean.squeeze())
             test_loss[idx] = loss_.item()
 
         results["train_losses"].append(train_loss.mean())
@@ -480,8 +476,8 @@ results = train_autoencoder(
     model.to("cpu"),
     optimizer,
     criterion,
-    train_dataloaders,
-    test_dataloaders,
+    train_dataloader,
+    test_dataloader,
     max_epochs,
     log_every,
 )
@@ -496,25 +492,24 @@ ax[0].set_yscale("log")
 ax[0].set_title("Loss")
 ax[0].legend()
 
-index = 0
-# perform prediction again
-last_x, last_y = test_noisy[index]
-last_x_prime = model(last_x.unsqueeze(0))
+with torch.no_grad():
+    index = 0
 
-# prepare tensors for plotting
-last_in = last_x.detach().squeeze().numpy()
-last_out = last_x_prime.detach().squeeze().numpy()
+    # perform prediction again
+    X_test_noisy, y_test_noisy = dataset_test_noisy[index]
+    X_prime_test = model(X_test_noisy)
+    print(f"{X_test_noisy.shape=}")
+    print(f"{X_prime_test.shape=}")
 
-# obtain reference test data
-clean_x, clean_y = test_clean[index]
-clean_in = clean_x.detach().squeeze().numpy()
+    X_test_clean, _ = dataset_test_clean[index]
+    print(f"{X_test_clean.shape=}")
 
-ax[1].plot(last_in, color="b", label="test input")
-ax[1].plot(last_out, color="orange", label="test prediction")
-ax[1].plot(clean_in, color="green", linestyle="--", label="clean")
+ax[1].plot(X_test_noisy.squeeze(), color="b", label="test input")
+ax[1].plot(X_prime_test.squeeze(), color="orange", label="test prediction")
+ax[1].plot(X_test_clean.squeeze(), color="green", linestyle="--", label="clean")
 ax[1].set_xlabel("samples / a.u.")
 ax[1].set_ylabel("intensity / a.u.")
-ax[1].set_title(f"Conv-based Autoencoder, label = {last_y.detach().item()}")
+ax[1].set_title(f"Conv-based Autoencoder, label = {y_test_noisy}")
 ax[1].legend()
 
 fig.savefig("mnist1d_noisy_conv_autoencoder_training.svg")
