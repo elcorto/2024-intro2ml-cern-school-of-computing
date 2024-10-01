@@ -418,15 +418,14 @@ We observe:
 """
 Now lets iterate through the data and verify that we combined the correct noisy
 and clean data points using StackDataset. We will look at the first `nrows *
-ncols` batches, and in each batch, plot noisy and clean data for
-`idx_in_batch`, which can be any number between 0 and `batch_size`.
+ncols` batches. For each batch, we plot noisy and clean data for a randomly
+picked data point `idx_in_batch`, which can be any number between 0 and
+`batch_size`.
 """
 
 # %%
 grid = gridspec.GridSpec(nrows=3, ncols=4)
 fig = plt.figure(figsize=(5 * grid.ncols, 5 * grid.nrows))
-
-idx_in_batch = 12
 
 for batch_idx, (gs, (train_noisy, train_clean)) in enumerate(
     zip(grid, train_dataloader)
@@ -435,6 +434,7 @@ for batch_idx, (gs, (train_noisy, train_clean)) in enumerate(
     X_train_clean, y_train_clean = train_clean
     assert (y_train_noisy == y_train_clean).all()
     ax = fig.add_subplot(gs)
+    idx_in_batch = np.random.randint(0, len(y_train_noisy))
     ax.plot(
         X_train_noisy[idx_in_batch].squeeze(), label="noisy", color=color_noisy
     )
@@ -443,7 +443,7 @@ for batch_idx, (gs, (train_noisy, train_clean)) in enumerate(
     )
     title = "\n".join(
         (
-            f"batch={batch_idx+1}",
+            f"batch={batch_idx+1} {idx_in_batch=}",
             f"labels: noisy={y_train_noisy[idx_in_batch]} clean={y_train_clean[idx_in_batch]}",
         )
     )
