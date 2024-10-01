@@ -17,8 +17,7 @@
 """
 # Environment Check
 
-This notebook is intended for all learners to check their environment. Please
-run this from within the "notebooks" directory.
+This notebook is intended for all learners to check their environment.
 
 This should print something like:
 
@@ -35,6 +34,20 @@ torchinfo           : found, version 1.8.0
 """
 
 # %%
+import os
+
 from utils import import_check
 
-import_check("../requirements.txt")
+here = os.path.abspath(os.path.expanduser('.'))
+
+found = False
+for path in [here, f"{here}/.."]:
+    fn = f"{path}/requirements.txt"
+    if os.path.exists(fn):
+        print(f"using: {fn}")
+        import_check(fn)
+        found = True
+        break
+
+if not found:
+    raise Exception("requirements.txt not found")
