@@ -378,7 +378,7 @@ dataset_train = torch.utils.data.StackDataset(dataset_train_noisy, dataset_train
 dataset_test = torch.utils.data.StackDataset(dataset_test_noisy, dataset_test_clean)
 
 train_dataloader = DataLoader(dataset_train, batch_size=64, shuffle=True)
-test_dataloader = DataLoader(dataset_test, batch_size=64, shuffle=True)
+test_dataloader = DataLoader(dataset_test, batch_size=64, shuffle=False)
 
 # %% [markdown]
 #
