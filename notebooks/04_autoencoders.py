@@ -63,8 +63,10 @@ rather poor. There is a lot of noise added to the dataset which is hard to
 handle. We will set up an autoencoder to tackle the task of **denoising**, i.e.
 to remove stochastic fluctuations from the input as best as possible.
 
-First, let's prepare a dataset, which is contains a signal we are interested in
-and the noise.
+First, let's prepare a dataset which contains a noisy signal that we wish to
+denoise. For that we use the MNIST1D dataset from earlier and add artificial
+noise. The autoencoder's task is to remove this noise by learning the
+characteristics of the data.
 """
 
 # %%
@@ -104,6 +106,10 @@ X, y = data["x"], data["y"]
 print(f"{X.shape=}")
 print(f"{y.shape=}")
 
+# The MNIST1D Dataset produces numpy arrays. Lets convert to torch.Tensor, with
+# torch.float32 dtype.
+X = torch.from_numpy(X).float()
+
 # %% [markdown]
 """
 Now, let's plot the data which we would like to use.
@@ -122,9 +128,9 @@ for sample in range(10):
     label = y[sample]
     ax[row, col].set_title(f"label {label}")
     if row == 1:
-        ax[row, col].set_xlabel(f"samples / a.u.")
+        ax[row, col].set_xlabel("samples / a.u.")
     if col == 0:
-        ax[row, col].set_ylabel(f"intensity / a.u.")
+        ax[row, col].set_ylabel("intensity / a.u.")
     if col == 4 and row == 0:
         ax[row, col].legend()
 
@@ -154,12 +160,15 @@ The architecture consists of three parts:
 1. **the encoder** on the left: this small network ingests the input data `X`
    and compresses it into a smaller shape
 2. the **code** in the center: this is the "bottleneck" which holds the
-   **latent representation** of your input data
-3. **the decoder** on the right: reconstructs the output from the latent code
+   **latent representation** `h`
+3. **the decoder** on the right: reconstructs the output `X'` from the latent code `h`
 
 The task of the autoencoder is to reconstruct the input as best as possible.
 This task is far from easy, as the autoencoder is forced to shrink the data
 into the latent space.
+
+Since we have have the same MNIST1D data as before, we'll use convolutional
+layers to build the autoencoder.
 """
 
 
@@ -222,26 +231,35 @@ class MyEncoder(torch.nn.Module):
             return self.layers(x)
 
 
+# %% [markdown]
+"""
+This decoder is not yet trained, so its weights are random. Still, lets apply
+this to some input data and observe the input and output shapes. For this we'll
+use the `model_summary()` helper function.
+"""
+
 # %%
 enc = MyEncoder()
 
-# convert input data to torch.Tensor and convert to torch.float32
-Xt = torch.from_numpy(X).float()
-
 # extract only first 8 samples for testing
-Xtest = Xt[:8, ...]
+X_test = X[:8, ...]
 
-latent_h = enc(Xtest)
+latent_h = enc(X_test)
 
 assert (
-    latent_h.shape[-1] < Xtest.shape[-1]
-), f"{latent_h.shape[-1]} !< {Xtest.shape[-1]}"
+    latent_h.shape[-1] < X_test.shape[-1]
+), f"{latent_h.shape[-1]} !< {X_test.shape[-1]}"
 
-print(f"{Xt[:1, ...].shape=}")
-model_summary(enc, input_size=Xt[:1, ...].shape)
+print(f"{X[:1, ...].shape=}")
+model_summary(enc, input_size=X[:1, ...].shape)
 
 # %% [markdown]
 """
+The encoder takes a tensor of shape `[batch_size, 40]` (or `[batch_size, 1,
+40]` with a channel dimension) and compresses that (with default settings for
+`nlayers`) to a latent `h` of shape `[batch_size, 10]`. Above, we used
+`batch_size=1` when calling `model_summary()`.
+
 The encoder has been constructed. Now, we need to add a decoder object to
 reconstruct from the latent space.
 """
@@ -300,10 +318,10 @@ class MyDecoder(torch.nn.Module):
 # %%
 dec = MyDecoder()
 
-Xt_prime = dec(latent_h)
+X_prime = dec(latent_h)
 assert (
-    Xt_prime.squeeze(1).shape == Xtest.shape
-), f"{Xt_prime.squeeze(1).shape} != {Xtest.shape}"
+    X_prime.squeeze(1).shape == X_test.shape
+), f"{X_prime.squeeze(1).shape} != {X_test.shape}"
 
 print(f"{latent_h[:1, ...].shape=}")
 model_summary(dec, input_size=latent_h[:1, ...].shape)
@@ -340,27 +358,30 @@ We can test our autoencoder to make sure it works as expected similar to what we
 
 # %%
 model = MyAutoencoder()
-Xt_prime = model(Xtest)
+X_prime = model(X_test)
 
 assert (
-    Xt_prime.squeeze(1).shape == Xtest.shape
-), f"{Xt_prime.squeeze(1).shape} != {Xtest.shape}"
+    X_prime.squeeze(1).shape == X_test.shape
+), f"{X_prime.squeeze(1).shape} != {X_test.shape}"
 
-print(f"{Xt[:1, ...].shape=}")
-model_summary(model, input_size=Xt[:1, ...].shape)
+print(f"{X[:1, ...].shape=}")
+model_summary(model, input_size=X[:1, ...].shape)
 
 
 # %% [markdown]
 """
 ## Training an autoencoder
 
-Training the autoencoder works in the same line as training for regression from the last episode.
+Training the autoencoder works the same as before.
 
 1. create the dataset
 2. create the loaders
 3. setup the model
 4. setup the optimizer
 5. loop through epochs
+
+Here we use a torch feature `StackDataset` to combine noisy inputs and clean
+targets.
 """
 
 # %%
@@ -390,14 +411,16 @@ test_dataloader = DataLoader(
 
 # %% [markdown]
 #
-# Let's inspect the data produced by the DataLoader. We look at the first batch
-# of data.
+# Let's inspect the data produced by the `DataLoader`. We look at the first batch
+# of data, which we create by letting `train_dataloader` run one iteration.
 
 # %%
 train_noisy, train_clean = next(iter(train_dataloader))
-print(f"{len(train_noisy)=} {len(train_clean)=}")
+
 X_train_noisy, y_train_noisy = train_noisy
 X_train_clean, y_train_clean = train_clean
+
+print(f"{len(train_noisy)=} {len(train_clean)=}")
 print(f"{X_train_noisy.shape=} {y_train_noisy.shape=}")
 print(f"{X_train_clean.shape=} {y_train_clean.shape=}")
 
@@ -405,13 +428,13 @@ print(f"{X_train_clean.shape=} {y_train_clean.shape=}")
 """
 We observe:
 
-* The DataLoader (via the MNIST1D custom Dataset) has added a channel
-  dimension, such that in each batch of `batch_size=64`, `X.shape` is [64, 1,
-  40] rather than [64, 40]. That is just a convenience feature. Our model can
+* The `DataLoader` (via the MNIST1D custom Dataset) has added a channel
+  dimension, such that in each batch of `batch_size=64`, `X.shape` is `[64, 1,
+  40]` rather than `[64, 40]`. That is just a convenience feature. Our model can
   handle either.
-* The DataLoader also returns the labels `y_train_*` since that is part of the
+* The `DataLoader` also returns the labels `y_train_*` since that is part of the
   MNIST1D Dataset. We will discard them below, since for training an
-  autoencoder, we only need the inputs X.
+  autoencoder, we only need the inputs `X`.
 """
 
 # %% [markdown]
@@ -420,7 +443,7 @@ Now lets iterate through the data and verify that we combined the correct noisy
 and clean data points using StackDataset. We will look at the first `nrows *
 ncols` batches. For each batch, we plot noisy and clean data for a randomly
 picked data point `idx_in_batch`, which can be any number between 0 and
-`batch_size`.
+`batch_size - 1`.
 """
 
 # %%
@@ -450,25 +473,10 @@ for batch_idx, (gs, (train_noisy, train_clean)) in enumerate(
     ax.set_title(title)
     ax.legend()
 
-# %%
-nsamples = len(dataset_train_noisy) + len(dataset_test_noisy)
-assert (
-    nsamples == 4_000
-), f"number of samples for MNIST1D is not 4_000 but {nsamples}"
-
-model = MyAutoencoder(nchannels=32)
-print(f"{Xt[:1, ...].shape=}")
-print(
-    model_summary(model, input_size=next(iter(train_dataloader))[0][0].shape)
-)
-
-learning_rate = 1e-3
-max_epochs = 20
-log_every = 5
-
-optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
-criterion = torch.nn.MSELoss()  # our loss function
-
+# %% [markdown]
+"""
+Let's define a helper function that will run the training.
+"""
 
 # %%
 def train_autoencoder(
@@ -547,7 +555,42 @@ def train_autoencoder(
             )
     return results
 
+# %% [markdown]
+"""
+Now we define the autoencoder model, the optimizer, the loss function, as well
+as hyper-parameters such as the optimizer step size (`learning_rate`).
 
+Again, we inspect the model using `model_summary()`. This time, we use an input
+tensor from `train_dataloader`, which has shape `[batch_size, 1, 40]`.
+"""
+
+# %%
+nsamples = len(dataset_train_noisy) + len(dataset_test_noisy)
+assert (
+    nsamples == 4_000
+), f"number of samples for MNIST1D is not 4_000 but {nsamples}"
+
+model = MyAutoencoder(nchannels=32)
+print(
+    model_summary(model, input_size=next(iter(train_dataloader))[0][0].shape)
+)
+
+learning_rate = 1e-3
+max_epochs = 20
+log_every = 5
+
+optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
+criterion = torch.nn.MSELoss()  # our loss function
+
+# %% [markdown]
+"""
+Run training.
+
+Note that if you re-execute this cell with*out* reinstantiating `model` above,
+you will continue training with the so-far best model as start point.
+"""
+
+# %%
 results = train_autoencoder(
     model,
     optimizer,
@@ -558,15 +601,19 @@ results = train_autoencoder(
     log_every,
 )
 
-model = model.cpu()
-model.eval()
-
 # %% [markdown]
 """
 # Plot loss (train progress) and predictions
 """
 
 # %%
+
+# Move model to CPU (only if a GPU was used, else this does nothing) and put in
+# eval mode.
+model = model.cpu()
+model.eval()
+
+
 fig, ax = plt.subplots()
 ax.plot(results["train_losses"], color="b", label="train")
 ax.plot(results["test_losses"], color="orange", label="test")
