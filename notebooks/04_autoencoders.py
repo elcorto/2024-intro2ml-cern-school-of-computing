@@ -71,6 +71,7 @@ characteristics of the data.
 
 # %%
 from typing import Sequence
+from collections import defaultdict
 
 import numpy as np
 import torch
@@ -440,7 +441,7 @@ We observe:
 # %% [markdown]
 """
 Now lets iterate through the data and verify that we combined the correct noisy
-and clean data points using StackDataset. We will look at the first `nrows *
+and clean data points using `StackDataset`. We will look at the first `nrows *
 ncols` batches. For each batch, we plot noisy and clean data for a randomly
 picked data point `idx_in_batch`, which can be any number between 0 and
 `batch_size - 1`.
@@ -481,22 +482,16 @@ Let's define a helper function that will run the training.
 # %%
 def train_autoencoder(
     model,
-    opt,
-    crit,
+    optimizer,
+    loss_func,
     train_dataloader,
     test_dataloader,
     max_epochs,
     log_every=5,
     use_gpu=False,
-):
-    results = {"train_losses": [], "test_losses": []}
-    ntrainsteps = len(train_dataloader)
-    nteststeps = len(test_dataloader)
-    train_loss, test_loss = (
-        torch.empty((ntrainsteps,)),
-        torch.empty((nteststeps,)),
-    )
+    logs=defaultdict(list)
 
+):
     if use_gpu and torch.cuda.is_available():
         device = torch.device("cuda:0")
     else:
@@ -506,8 +501,10 @@ def train_autoencoder(
     model.train()
 
     for epoch in range(max_epochs):
+        train_loss_epoch_sum = 0.0
+        test_loss_epoch_sum = 0.0
         # perform train for one epoch
-        for idx, (train_noisy, train_clean) in enumerate(train_dataloader):
+        for train_noisy, train_clean in train_dataloader:
             # Discard labels if using StackDataset
             if isinstance(train_noisy, Sequence):
                 X_train_noisy = train_noisy[0]
@@ -520,20 +517,20 @@ def train_autoencoder(
             X_prime_train = model(X_train_noisy.to(device))
 
             # compute loss
-            loss = crit(X_prime_train, X_train_clean.squeeze().to(device))
+            train_loss = loss_func(X_prime_train, X_train_clean.squeeze().to(device))
 
             # compute gradient
-            loss.backward()
+            train_loss.backward()
 
             # apply weight update rule
-            opt.step()
+            optimizer.step()
 
             # set gradients to 0
-            opt.zero_grad()
+            optimizer.zero_grad()
 
-            train_loss[idx] = loss.item()
+            train_loss_epoch_sum += train_loss.item()
 
-        for idx, (test_noisy, test_clean) in enumerate(test_dataloader):
+        for test_noisy, test_clean in test_dataloader:
             # Discard labels if using StackDataset
             if isinstance(test_noisy, Sequence):
                 X_test_noisy = test_noisy[0]
@@ -543,17 +540,17 @@ def train_autoencoder(
                 X_test_clean = test_clean
 
             X_prime_test = model(X_test_noisy.to(device))
-            loss_ = crit(X_prime_test, X_test_clean.squeeze().to(device))
-            test_loss[idx] = loss_.item()
+            test_loss = loss_func(X_prime_test, X_test_clean.squeeze().to(device))
+            test_loss_epoch_sum += test_loss.item()
 
-        results["train_losses"].append(train_loss.mean())
-        results["test_losses"].append(test_loss.mean())
+        logs["train_losses"].append(train_loss_epoch_sum / len(train_dataloader))
+        logs["test_losses"].append(test_loss_epoch_sum / len(test_dataloader))
 
         if (epoch + 1) % log_every == 0 or (epoch + 1) == max_epochs:
             print(
                 f"{epoch+1:02.0f}/{max_epochs} :: training loss {train_loss.mean():03.4f}; test loss {test_loss.mean():03.4f}"
             )
-    return results
+    return logs
 
 # %% [markdown]
 """
@@ -580,25 +577,30 @@ max_epochs = 20
 log_every = 5
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
-criterion = torch.nn.MSELoss()  # our loss function
+loss_func = torch.nn.MSELoss()
+
+# Initialize empty loss logs once.
+logs = defaultdict(list)
 
 # %% [markdown]
 """
 Run training.
 
 Note that if you re-execute this cell with*out* reinstantiating `model` above,
-you will continue training with the so-far best model as start point.
+you will continue training with the so-far best model as start point. Also, we
+append loss histories to `logs`.
 """
 
 # %%
-results = train_autoencoder(
-    model,
-    optimizer,
-    criterion,
-    train_dataloader,
-    test_dataloader,
-    max_epochs,
-    log_every,
+logs = train_autoencoder(
+    model=model,
+    optimizer=optimizer,
+    loss_func=loss_func,
+    train_dataloader=train_dataloader,
+    test_dataloader=test_dataloader,
+    max_epochs=max_epochs,
+    log_every=log_every,
+    logs=logs,
 )
 
 # %% [markdown]
@@ -607,7 +609,6 @@ results = train_autoencoder(
 """
 
 # %%
-
 # Move model to CPU (only if a GPU was used, else this does nothing) and put in
 # eval mode.
 model = model.cpu()
@@ -615,8 +616,8 @@ model.eval()
 
 
 fig, ax = plt.subplots()
-ax.plot(results["train_losses"], color="b", label="train")
-ax.plot(results["test_losses"], color="orange", label="test")
+ax.plot(logs["train_losses"], color="b", label="train")
+ax.plot(logs["test_losses"], color="orange", label="test")
 ax.set_xlabel("epoch")
 ax.set_ylabel("average MSE Loss / a.u.")
 ax.set_yscale("log")
@@ -692,13 +693,13 @@ Try to improve this by varying the following parameters and observe their
 effect on the reconstruction. Re-execute the cells above which define the model,
 set the hyper-parameters and run the training.
 
+Training:
+
+* max_epochs (try training for 200 epochs)
+* learning_rate (try 10x and 1/10 of the value above)
+
 Model architecture:
 
 * nchannels
 * nlayers (bigger means smaller latent space size)
-
-Training:
-
-* learning_rate
-* max_epochs
 """
