@@ -1,5 +1,7 @@
 # This python file contains helper classes and functions which make the latter notebooks
 # more readable.
+import re
+import importlib
 
 import numpy as np
 import torch
@@ -79,3 +81,21 @@ def model_summary(*args, **kwds):
     return torchinfo.summary(
         *args, col_names=("input_size", "output_size", "num_params"), **kwds
     )
+
+
+def import_check(fn: str):
+    name_map = {"scikit-learn": "sklearn"}
+    with open(fn, "r") as fd:
+        for line in fd.readlines():
+            m = re.match(r"^([^#]\s*[a-z0-9_\-]+).*$", line.strip())
+            if m is not None:
+                pkg_name = name_map.get(m.group(1), m.group(1))
+                try:
+                    pkg = importlib.import_module(pkg_name)
+                    if hasattr(pkg, "__version__"):
+                        vv = f"version {pkg.__version__}"
+                    else:
+                        vv = f"(no version info)"
+                    print(f"{pkg_name:20}: found, {vv:25}")
+                except ImportError:
+                    print(f"{pkg_name}: NOT FOUND!")

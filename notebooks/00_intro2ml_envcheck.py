@@ -14,44 +14,27 @@
 # ---
 
 # %% [markdown]
-# # Environment Check
-#
-# This notebook is intended for all learners to check their environment. Click
-# through it to see if your environment is setup correctly.
+"""
+# Environment Check
+
+This notebook is intended for all learners to check their environment. Please
+run this from within the "notebooks" directory.
+
+This should print something like:
+
+```
+jupytext            : found, version 1.16.4
+ipykernel           : found, version 6.29.5
+notebook            : found, version 6.4.13
+torch               : found, version 2.4.1+rocm6.1
+seaborn             : found, version 0.13.2
+mnist1d             : found, (no version info)
+sklearn             : found, version 1.4.2
+torchinfo           : found, version 1.8.0
+```
+"""
 
 # %%
-import torch
+from utils import import_check
 
-print("torch installed, ", torch.__version__)
-
-# %%
-import seaborn
-
-print("seaborn installed, ", seaborn.__version__)
-
-# %% [markdown]
-#
-# For most of the notebooks, we require the handy
-# [MNIST1D](https://github.com/greydanus/mnist1d) dataset which is both small,
-# versatile and tricky. The dataset can be installed as a `pip` package.
-#
-# To do so, create a new cell below and run the following command in it:
-#
-# ```
-# !python -m pip install --user mnist1d
-# ```
-
-# %%
-import mnist1d
-
-if hasattr(mnist1d, "get_dataset"):
-    print("mnist1d installed!")
-else:
-    print("mnist1d NOT installed. See instructions for details.")
-
-# %% [markdown]
-#
-# If you were able to run the notebook until this point without any errors, you are
-
-# %%
-print("READY to GO!")
+import_check("../requirements.txt")
