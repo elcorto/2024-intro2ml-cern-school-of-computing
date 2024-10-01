@@ -416,6 +416,43 @@ We observe:
   autoencoder, we only need the inputs X.
 """
 
+# %% [markdown]
+"""
+Now lets iterate through the data and verify that we combined the correct noisy
+and clean data points using StackDataset. We will look at the first `nrows *
+ncols` batches, and in each batch, plot noisy and clean data for
+`idx_in_batch`, which can be any number between 0 and `batch_size`.
+"""
+
+# %%
+grid = gridspec.GridSpec(nrows=3, ncols=4)
+fig = plt.figure(figsize=(5 * grid.ncols, 5 * grid.nrows))
+
+idx_in_batch = 23
+
+for batch_idx, (gs, (train_noisy, train_clean)) in enumerate(
+    zip(grid, train_dataloader)
+):
+    X_train_noisy, y_train_noisy = train_noisy
+    X_train_clean, y_train_clean = train_clean
+    assert len(y_train_noisy) == batch_size
+    assert (y_train_noisy == y_train_clean).all()
+    ax = fig.add_subplot(gs)
+    ax.plot(
+        X_train_noisy[idx_in_batch].squeeze(), label="noisy", color=color_noisy
+    )
+    ax.plot(
+        X_train_clean[idx_in_batch].squeeze(), label="clean", color=color_clean
+    )
+    title = "\n".join(
+        (
+            f"batch={batch_idx+1}",
+            f"labels: noisy={y_train_noisy[idx_in_batch]} clean={y_train_clean[idx_in_batch]}",
+        )
+    )
+    ax.set_title(title)
+    ax.legend()
+
 # %%
 nsamples = len(dataset_train_noisy) + len(dataset_test_noisy)
 assert (
