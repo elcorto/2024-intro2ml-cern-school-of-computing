@@ -477,7 +477,7 @@ def train_autoencoder(
 
 
 results = train_autoencoder(
-    model,
+    model.to("cpu"),
     optimizer,
     criterion,
     train_dataloaders,
