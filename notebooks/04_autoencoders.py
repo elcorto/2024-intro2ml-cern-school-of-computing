@@ -380,8 +380,31 @@ dataset_test = torch.utils.data.StackDataset(dataset_test_noisy, dataset_test_cl
 train_dataloader = DataLoader(dataset_train, batch_size=64, shuffle=True)
 test_dataloader = DataLoader(dataset_test, batch_size=64, shuffle=True)
 
-train_dataloaders = DataLoader(train_data, batch_size=64, shuffle=True)
-test_dataloaders = DataLoader(test_data, batch_size=64, shuffle=True)
+# %% [markdown]
+#
+# Let's inspect the data produced by the DataLoader. We look at the first batch
+# of data.
+
+# %%
+train_noisy, train_clean = list(train_dataloader)[0]
+print(f"{len(train_noisy)=} {len(train_clean)=}")
+X_train_noisy, y_train_noisy = train_noisy
+X_train_clean, y_train_clean = train_clean
+print(f"{X_train_noisy.shape=} {y_train_noisy.shape=}")
+print(f"{X_train_clean.shape=} {y_train_clean.shape=}")
+
+# %% [markdown]
+"""
+We observe:
+
+* The DataLoader (via the MNIST1D custom Dataset) has added a channel
+  dimension, such that in each batch of `batch_size=64`, `X.shape` is [64, 1,
+  40] rather than [64, 40]. That is just a convenience feature. Our model can
+  handle either.
+* The DataLoader also returns the labels `y_train_*` since that is part of the
+  MNIST1D Dataset. We will discard them below, since for training an
+  autoencoder, we only need the inputs X.
+"""
 
 # %%
 nsamples = len(dataset_train_noisy) + len(dataset_test_noisy)
