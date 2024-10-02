@@ -180,7 +180,6 @@ Other resources:
 
 * https://lightning.ai/docs/pytorch/stable/notebooks/course_UvA-DL/08-deep-autoencoders.html
 * https://github.com/fquaren/Deep-Clustering-with-Convolutional-Autoencoders/blob/master/src/nets.py
-
 """
 
 
@@ -795,14 +794,54 @@ with torch.no_grad():
     colors = prop_cycle.by_key()["color"]
     assert len(colors) == 10
 
+    latent_h = []
+    labels = []
     for test_noisy, test_clean in test_dataloader:
         X_test_noisy, y_test_noisy = test_noisy
         X_test_clean, y_test_clean = test_clean
         assert (y_test_noisy == y_test_clean).all()
-        for idx in range(len(y_test_clean)):
-            y = y_test_clean[idx]
-            axs_data[y].plot(X_test_clean[idx].squeeze(), color=colors[y])
-            axs_latent[y].plot(
-                model.enc(X_test_noisy[idx]).squeeze(),
-                color=colors[y],
+        for idx_in_batch in range(len(y_test_clean)):
+            y = y_test_clean[idx_in_batch]
+            axs_data[y].plot(
+                X_test_clean[idx_in_batch].squeeze(), color=colors[y]
             )
+            h = model.enc(X_test_noisy[idx_in_batch]).squeeze()
+            axs_latent[y].plot(h, color=colors[y])
+            latent_h.append(h)
+            labels.append(y)
+
+    latent_h = np.array(latent_h)
+    labels = np.array(labels)
+
+
+# %% [markdown]
+"""
+Let's project the latent representations into a 2D space and see if we can find
+some structure there.
+"""
+
+# %%
+from sklearn.manifold import MDS, TSNE
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+
+c = [colors[y] for y in labels]
+latent_h_scaled = StandardScaler().fit_transform(latent_h)
+
+emb_methods = dict(
+    tsne=TSNE(n_components=2, init="pca", perplexity=50, n_iter=3000),
+    mds=MDS(n_components=2),
+    pca=PCA(n_components=2),
+)
+
+ncols = 1
+nrows = len(emb_methods)
+fig, axs = plt.subplots(
+    nrows=nrows, ncols=ncols, figsize=(5 * ncols, 5 * nrows)
+)
+for (name, emb), ax in zip(emb_methods.items(), axs):
+    latent_h_proj = emb.fit_transform(latent_h_scaled)
+    ax.scatter(latent_h_proj[:, 0], latent_h_proj[:, 1], c=c)
+    ax.set_title(name)
+
+# %%
