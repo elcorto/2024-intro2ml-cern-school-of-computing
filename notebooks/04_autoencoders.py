@@ -548,7 +548,6 @@ def train_autoencoder(
     model.train()
 
     for epoch in range(max_epochs):
-
         # For calculating loss averages in one epoch
         train_loss_epoch_sum = 0.0
         test_loss_epoch_sum = 0.0
@@ -762,3 +761,48 @@ Model architecture:
    as `[32,64,128]` (more) or `[16,32,64,128,256]` (deeper)
 * `latent_ndim`: the default is 10, try setting it to 2 or 20, what happens?
 """
+
+# %% [markdown]
+"""
+## Visualize the latent space
+"""
+
+# %%
+with torch.no_grad():
+    grid_data = gridspec.GridSpec(nrows=5, ncols=2)
+    grid_latent = gridspec.GridSpec(nrows=5, ncols=2)
+
+    fig_data = plt.figure(
+        figsize=(5 * grid_data.ncols, 5 * grid_data.nrows),
+        layout="tight",
+    )
+    fig_latent = plt.figure(
+        figsize=(5 * grid_latent.ncols, 5 * grid_latent.nrows),
+        layout="tight",
+    )
+
+    axs_data = []
+    for label, gs in enumerate(grid_data):
+        axs_data.append(fig_data.add_subplot(gs))
+        axs_data[-1].set_title(f"clean data, {label=}")
+    axs_latent = []
+    for label, gs in enumerate(grid_latent):
+        axs_latent.append(fig_latent.add_subplot(gs))
+        axs_latent[-1].set_title(f"latent h, {label=}")
+
+    # https://matplotlib.org/stable/gallery/color/color_cycle_default.html
+    prop_cycle = plt.rcParams["axes.prop_cycle"]
+    colors = prop_cycle.by_key()["color"]
+    assert len(colors) == 10
+
+    for test_noisy, test_clean in test_dataloader:
+        X_test_noisy, y_test_noisy = test_noisy
+        X_test_clean, y_test_clean = test_clean
+        assert (y_test_noisy == y_test_clean).all()
+        for idx in range(len(y_test_clean)):
+            y = y_test_clean[idx]
+            axs_data[y].plot(X_test_clean[idx].squeeze(), color=colors[y])
+            axs_latent[y].plot(
+                model.enc(X_test_noisy[idx]).squeeze(),
+                color=colors[y],
+            )
