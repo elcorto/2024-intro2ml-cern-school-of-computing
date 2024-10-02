@@ -218,7 +218,6 @@ class MyEncoder(torch.nn.Module):
                 out_features=latent_ndim,
             )
         )
-        ##self.layers.append(torch.nn.ReLU())
 
     def forward(self, x):
         # Convolutions in torch require an explicit channel dimension to be
@@ -233,7 +232,7 @@ class MyEncoder(torch.nn.Module):
 
 # %% [markdown]
 """
-This decoder is not yet trained, so its weights are random. Still, lets apply
+This encoder is not yet trained, so its weights are random. Still, lets apply
 this to some input data and observe the input and output shapes. For this we'll
 use the `model_summary()` helper function.
 """
@@ -256,9 +255,9 @@ print(model_summary(enc, input_size=X[:1, ...].shape))
 # %% [markdown]
 """
 The encoder takes a tensor of shape `[batch_size, 40]` (or `[batch_size, 1,
-40]` with a channel dimension) and compresses that (with default settings for
-`nlayers`) to a latent `h` of shape `[batch_size, 10]`. Above, we used
-`batch_size=1` when calling `model_summary()`.
+40]` with a channel dimension) and compresses that to a latent `h` of shape
+`[batch_size, latent_ndim]`. Above, we used `batch_size=1` when calling
+`model_summary()`.
 
 The encoder has been constructed. Now, we need to add a decoder object to
 reconstruct from the latent space.
