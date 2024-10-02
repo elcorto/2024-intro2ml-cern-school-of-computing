@@ -752,28 +752,16 @@ fig.savefig("mnist1d_noisy_conv_autoencoder_predictions.svg")
 
 # %% [markdown]
 """
-We can see that the autoencoder smoothed the input signal when producing a
-reconstruction. This denoising effect can be quite helpful in practice. The
-core reasons for this effect are:
-
-1. The bottleneck (producing the latent representation) in the architecture
-   forces the model to generalize the input data.
-2. We train using the mean squared error as the loss function,
-   this has a smoothing effect as well as the learning goal for the model is
-   effectively to produce low differences on average.
-3. We use convolutions which slide across the data and hence can incur a
-   smoothing effect.
-"""
-
-# %% [markdown]
-"""
 ## **Exercise 04.1** Vary autoencoder hyper-parameters
 
-The model predictions are actually not very good -- too much smoothing in some
-parts of a signal, following the input signal too much in other parts. The same
-could probably be acheived by a much simpler method such as a moving average :)
-Also, looking at the loss plot, it seems that the training is not yet
-converged.
+We can see that the autoencoder smoothed the input signal when producing a
+reconstruction.
+
+However, the model predictions, i.e. the denoised reconstructions of clean
+data, are actually not very good -- too much smoothing in some parts of a
+signal, following the input signal too much in other parts. The same could
+probably be acheived by a much simpler method such as a moving average :) Also,
+looking at the loss plot, it seems that the training is not yet converged.
 
 Try to improve this by varying the following parameters and observe their
 effect on the reconstruction. Re-execute the cells above which define the model,
@@ -891,9 +879,9 @@ for (name, emb), ax in zip(emb_methods.items(), axs):
 
 # %% [markdown]
 """
-We see that in the 2D projections, there is some structure (e.g. in the t-SNE
-case) and that in case of PCA, points belonging to a label are loosely grouped
-together.
+We see that in the 2D projections, there are cluster-like structures for some
+methods, while points belonging to a label are loosely grouped together by
+another method.
 
 Yet, overall there is no clear clustering into groups by label. There are
 several reasons for this.
@@ -902,14 +890,11 @@ several reasons for this.
   denoise them. Hence the model learns to produce latent codes that help in
   doing that, and as a result may focus on other parts of the data than those
   which discriminate between classes.
-* Our model's reconstructions are still far from perfect. We suspect that a
-  more performant model will also have more distinct latent codes. In practice
-  we'd now run a systematic hyper-parameters study testing a bigger model, more
-  data, longer training, a more elaborate training protocol and measures
-  against overfitting.
 * Dimensionality reduction is a tricky business which by construction is a
   process where information is lost, while trying to retain the most prominent
-  parts. This is exemplified by the very different
-  results of the methods used. Still, if the model had learned to produce very
-  distinct embeddings, we would also expect to see this even in a 2D space.
+  parts. This is exemplified by the different results of the methods used.
+  Also, each method has hyper-parameters that need to be explored before
+  over-interpreting any method's results. Still, if the model had learned to
+  produce very distinct embeddings, we would also expect to see this even in a
+  2D space.
 """
