@@ -792,13 +792,13 @@ combining normal `stride=1` convolutions with max or average pooling layers.
 ## Visualize the latent space
 
 We now plot, separate for each label, each clean `X_test_clean[i]` and the
-latent embedding `h=enc(X_test_noisy[i]` of the noisy input.
+latent embedding `h=enc(X_test_noisy[i])` of the noisy input.
 """
 
 # %%
 with torch.no_grad():
-    grid_data = gridspec.GridSpec(nrows=5, ncols=2)
-    grid_latent = gridspec.GridSpec(nrows=5, ncols=2)
+    grid_data = gridspec.GridSpec(nrows=2, ncols=5)
+    grid_latent = gridspec.GridSpec(nrows=2, ncols=5)
 
     fig_data = plt.figure(
         figsize=(5 * grid_data.ncols, 5 * grid_data.nrows),
@@ -861,7 +861,7 @@ c = [colors[y] for y in labels]
 latent_h_scaled = StandardScaler().fit_transform(latent_h)
 
 emb_methods = dict(
-    tsne=TSNE(n_components=2, init="pca", perplexity=50, n_iter=3000),
+    tsne=TSNE(n_components=2),
     mds=MDS(n_components=2),
     pca=PCA(n_components=2),
     isomap=Isomap(n_components=2),
