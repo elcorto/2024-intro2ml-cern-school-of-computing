@@ -169,7 +169,18 @@ This task is far from easy, as the autoencoder is forced to shrink the data
 into the latent space.
 
 Since we have have the same MNIST1D data as before, we'll use convolutional
-layers to build the autoencoder.
+layers to build the autoencoder. In particular, we follow this design for 2D
+convolutions of images, adapted to our 1D case.
+
+![image](img/guo_2017_cae.png)
+
+Guo et al. "Deep Clustering with Convolutional Autoencoders", 2017 (https://doi.org/10.1007/978-3-319-70096-0_39)
+
+Other resources:
+
+* https://lightning.ai/docs/pytorch/stable/notebooks/course_UvA-DL/08-deep-autoencoders.html
+* https://github.com/fquaren/Deep-Clustering-with-Convolutional-Autoencoders/blob/master/src/nets.py
+
 """
 
 
