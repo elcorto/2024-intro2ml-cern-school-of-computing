@@ -821,7 +821,7 @@ some structure there.
 """
 
 # %%
-from sklearn.manifold import MDS, TSNE
+from sklearn.manifold import MDS, TSNE, Isomap
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
@@ -832,6 +832,7 @@ emb_methods = dict(
     tsne=TSNE(n_components=2, init="pca", perplexity=50, n_iter=3000),
     mds=MDS(n_components=2),
     pca=PCA(n_components=2),
+    isomap=Isomap(n_components=2),
 )
 
 ncols = 1
