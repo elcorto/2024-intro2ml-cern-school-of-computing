@@ -190,7 +190,9 @@ class MyEncoder(torch.nn.Module):
         self.layers = torch.nn.Sequential()
 
         channels = [1] + channels
-        for old_n_channels, new_n_channels in zip(channels[:-1], channels[1:]):
+        for ii, (old_n_channels, new_n_channels) in enumerate(
+            zip(channels[:-1], channels[1:])
+        ):
             self.layers.append(
                 torch.nn.Conv1d(
                     in_channels=old_n_channels,
@@ -201,6 +203,17 @@ class MyEncoder(torch.nn.Module):
                     stride=2,
                 )
             )
+            if ii < len(channels) - 2:
+                self.layers.append(
+                    torch.nn.Conv1d(
+                        in_channels=new_n_channels,
+                        out_channels=new_n_channels,
+                        kernel_size=3,
+                        padding=1,
+                        padding_mode="replicate",
+                        stride=1,
+                    )
+                )
             self.layers.append(torch.nn.ReLU())
 
         self.layers.append(torch.nn.Flatten())
@@ -284,31 +297,36 @@ class MyDecoder(torch.nn.Module):
         #
         #   linear_ndim = 160 = 32 * 5
         #
-        # Layer (type:depth-idx)                   Input Shape               Output Shape
-        # ================================================================================
-        # MyAutoencoder                            [1, 40]                   [1, 40]
-        # ├─MyEncoder: 1-1                         [1, 40]                   [1, 10]
-        # │    └─Sequential: 2-1                   [1, 1, 40]                [1, 10]
-        # │    │    └─Conv1d: 3-1                  [1, 1, 40]                [1, 8, 20]
-        # │    │    └─ReLU: 3-2                    [1, 8, 20]                [1, 8, 20]
-        # │    │    └─Conv1d: 3-3                  [1, 8, 20]                [1, 16, 10]
-        # │    │    └─ReLU: 3-4                    [1, 16, 10]               [1, 16, 10]
-        # │    │    └─Conv1d: 3-5                  [1, 16, 10]               [1, 32, 5]
-        # │    │    └─ReLU: 3-6                    [1, 32, 5]                [1, 32, 5]
-        # │    │    └─Flatten: 3-7                 [1, 32, 5]                [1, 160]
-        # │    │    └─Linear: 3-8                  [1, 160]                  [1, 10]
-        # ├─MyDecoder: 1-2                         [1, 10]                   [1, 40]
-        # │    └─Sequential: 2-2                   [1, 10]                   [1, 40]
-        # │    │    └─Linear: 3-9                  [1, 10]                   [1, 160]
-        # │    │    └─ReLU: 3-10                   [1, 160]                  [1, 160]
-        # │    │    └─Unflatten: 3-11              [1, 160]                  [1, 32, 5]
-        # │    │    └─ConvTranspose1d: 3-12        [1, 32, 5]                [1, 16, 10]
-        # │    │    └─ReLU: 3-13                   [1, 16, 10]               [1, 16, 10]
-        # │    │    └─ConvTranspose1d: 3-14        [1, 16, 10]               [1, 8, 20]
-        # │    │    └─ReLU: 3-15                   [1, 8, 20]                [1, 8, 20]
-        # │    │    └─ConvTranspose1d: 3-16        [1, 8, 20]                [1, 1, 40]
-        # │    │    └─Flatten: 3-17                [1, 1, 40]                [1, 40]
-        # ================================================================================
+        # ======================================================================
+        # Layer (type:depth-idx)                   Input Shape     Output Shape
+        # ======================================================================
+        # MyAutoencoder                            [1, 40]         [1, 40]
+        # ├─MyEncoder: 1-1                         [1, 40]         [1, 10]
+        # │    └─Sequential: 2-1                   [1, 1, 40]      [1, 10]
+        # │    │    └─Conv1d: 3-1                  [1, 1, 40]      [1, 8, 20]
+        # │    │    └─Conv1d: 3-2                  [1, 8, 20]      [1, 8, 20]
+        # │    │    └─ReLU: 3-3                    [1, 8, 20]      [1, 8, 20]
+        # │    │    └─Conv1d: 3-4                  [1, 8, 20]      [1, 16, 10]
+        # │    │    └─Conv1d: 3-5                  [1, 16, 10]     [1, 16, 10]
+        # │    │    └─ReLU: 3-6                    [1, 16, 10]     [1, 16, 10]
+        # │    │    └─Conv1d: 3-7                  [1, 16, 10]     [1, 32, 5]
+        # │    │    └─ReLU: 3-8                    [1, 32, 5]      [1, 32, 5]
+        # │    │    └─Flatten: 3-9                 [1, 32, 5]      [1, 160]
+        # │    │    └─Linear: 3-10                 [1, 160]        [1, 10]
+        # ├─MyDecoder: 1-2                         [1, 10]         [1, 40]
+        # │    └─Sequential: 2-2                   [1, 10]         [1, 40]
+        # │    │    └─Linear: 3-11                 [1, 10]         [1, 160]
+        # │    │    └─ReLU: 3-12                   [1, 160]        [1, 160]
+        # │    │    └─Unflatten: 3-13              [1, 160]        [1, 32, 5]
+        # │    │    └─ConvTranspose1d: 3-14        [1, 32, 5]      [1, 16, 10]
+        # │    │    └─Conv1d: 3-15                 [1, 16, 10]     [1, 16, 10]
+        # │    │    └─ReLU: 3-16                   [1, 16, 10]     [1, 16, 10]
+        # │    │    └─ConvTranspose1d: 3-17        [1, 16, 10]     [1, 8, 20]
+        # │    │    └─Conv1d: 3-18                 [1, 8, 20]      [1, 8, 20]
+        # │    │    └─ReLU: 3-19                   [1, 8, 20]      [1, 8, 20]
+        # │    │    └─ConvTranspose1d: 3-20        [1, 8, 20]      [1, 1, 40]
+        # │    │    └─Flatten: 3-21                [1, 1, 40]      [1, 40]
+        # ======================================================================
 
         smallest_conv_ndim = output_ndim // (2 ** len(channels))
         linear_ndim = channels[0] * smallest_conv_ndim
@@ -328,7 +346,9 @@ class MyDecoder(torch.nn.Module):
         )
 
         channels = channels + [1]
-        for old_n_channels, new_n_channels in zip(channels[:-1], channels[1:]):
+        for ii, (old_n_channels, new_n_channels) in enumerate(
+            zip(channels[:-1], channels[1:])
+        ):
             self.layers.append(
                 torch.nn.ConvTranspose1d(
                     in_channels=old_n_channels,
@@ -340,6 +360,17 @@ class MyDecoder(torch.nn.Module):
                     output_padding=1,
                 )
             )
+            if ii < len(channels) - 2:
+                self.layers.append(
+                    torch.nn.Conv1d(
+                        in_channels=new_n_channels,
+                        out_channels=new_n_channels,
+                        kernel_size=3,
+                        padding=1,
+                        padding_mode="replicate",
+                        stride=1,
+                    )
+                )
             self.layers.append(torch.nn.ReLU())
 
         # Remove last ReLU
