@@ -764,6 +764,9 @@ Model architecture:
 # %% [markdown]
 """
 ## Visualize the latent space
+
+We now plot, separate for each label, each clean `X_test_clean[i]` and the
+latent embedding `h=enc(X_test_noisy[i]` of the noisy input.
 """
 
 # %%
@@ -816,6 +819,9 @@ with torch.no_grad():
 
 # %% [markdown]
 """
+We find that all latent `h` vectors look very similar, so it is hard to
+visually find clusters of embedding that belong to a certain label.
+
 Let's project the latent representations into a 2D space and see if we can find
 some structure there.
 """
@@ -845,4 +851,24 @@ for (name, emb), ax in zip(emb_methods.items(), axs):
     ax.scatter(latent_h_proj[:, 0], latent_h_proj[:, 1], c=c)
     ax.set_title(name)
 
-# %%
+# %% [markdown]
+"""
+We see that in the 2D projections, there is some structure (e.g. in the t-SNE
+case) and that in case of PCA, points belonging to a label are loosely grouped
+together.
+
+Yet, overall there is no clear clustering into groups by label. There are
+several reasons for this.
+
+* Dimensionality reduction is a tricky business which by construction is a
+  process where information is lost, while trying to retain the most prominent
+  parts. This is exemplified by the very different
+  results of the methods used. Still, if the model had learned to produce very
+  distinct embeddings, we would also expect to see this even in a 2D space.
+* The autoencoder was *not* trained to classify inputs by label, but to
+  denoise them. Hence the model learns to produce latent codes that help in
+  doing that, and as a result may focus on other parts of the data than those
+  which discriminate between classes.
+* Our model's reconstructions are far from perfect. With maybe a bigger model,
+  more data and longer training, we may see better results.
+"""
