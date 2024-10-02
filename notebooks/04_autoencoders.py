@@ -466,10 +466,14 @@ targets.
 # noisy data
 dataset_train_noisy = MNIST1D(mnist1d_args=noisy_config, train=True)
 dataset_test_noisy = MNIST1D(mnist1d_args=noisy_config, train=False)
+assert len(dataset_train_noisy) == 3600
+assert len(dataset_test_noisy) == 400
 
 # clean data
 dataset_train_clean = MNIST1D(mnist1d_args=clean_config, train=True)
 dataset_test_clean = MNIST1D(mnist1d_args=clean_config, train=False)
+assert len(dataset_train_clean) == 3600
+assert len(dataset_test_clean) == 400
 
 # stacked as paired sequences, like Python's zip()
 dataset_train = torch.utils.data.StackDataset(
@@ -518,8 +522,8 @@ We observe:
 # %% [markdown]
 """
 Now lets iterate through the data and verify that we combined the correct noisy
-and clean data points using `StackDataset`. We will look at the first `nrows *
-ncols` batches. For each batch, we plot noisy and clean data for a randomly
+and clean data points using `StackDataset`. We will look at the first couple of
+batches only. For each batch, we plot noisy and clean data for a randomly
 picked data point `idx_in_batch`, which can be any number between 0 and
 `batch_size - 1`.
 """
@@ -647,11 +651,6 @@ tensor from `train_dataloader`, which has shape `[batch_size, 1, 40]`.
 """
 
 # %%
-nsamples = len(dataset_train_noisy) + len(dataset_test_noisy)
-assert (
-    nsamples == 4_000
-), f"number of samples for MNIST1D is not 4_000 but {nsamples}"
-
 model = MyAutoencoder(enc_channels=[8, 16, 32])
 print(
     model_summary(model, input_size=next(iter(train_dataloader))[0][0].shape)
@@ -782,14 +781,22 @@ set the hyper-parameters and run the training.
 
 Training:
 
-* `max_epochs`: try training for 200 epochs
+* `max_epochs`: try training for 100 or 200 epochs
 * `learning_rate`: try 10x and 1/10 of the value above
 
 Model architecture:
 
-* `enc_channels`: try more channels per convolution and/or deeper models, such
-   as `[32,64,128]` (more) or `[16,32,64,128,256]` (deeper)
+* `enc_channels`: try more channels per convolution, such as `[32,64,128]` or
+  `[64,128,256]`
 * `latent_ndim`: the default is 10, try setting it to 2 or 20, what happens?
+
+Note on `enc_channels`: Deeper models with more conv steps such as
+`[8,16,32,64,128,256]` is not possible with our code since in the encoder we
+half the dimension with every conv step using strided convolutions: 40 - 20 -
+10 - 5 (and double them in the decoder). The dimension in each step must be (a)
+a multiple of 2 and (b) non-zero. To make the model deeper, we'd need to drop
+strided convolutions and use another way to shink the dimension, e.g. by
+combining normal `stride=1` convolutions with max or average pooling layers.
 """
 
 # %% [markdown]
@@ -851,7 +858,7 @@ with torch.no_grad():
 # %% [markdown]
 """
 We find that all latent `h` vectors look very similar, so it is hard to
-visually find clusters of embedding that belong to a certain label.
+visually find clusters of embeddings that belong to a certain label.
 
 Let's project the latent representations into a 2D space and see if we can find
 some structure there.
@@ -891,15 +898,18 @@ together.
 Yet, overall there is no clear clustering into groups by label. There are
 several reasons for this.
 
+* The autoencoder was *not* trained to classify inputs by label, but to
+  denoise them. Hence the model learns to produce latent codes that help in
+  doing that, and as a result may focus on other parts of the data than those
+  which discriminate between classes.
+* Our model's reconstructions are still far from perfect. We suspect that a
+  more performant model will also have more distinct latent codes. In practice
+  we'd now run a systematic hyper-parameters study testing a bigger model, more
+  data, longer training, a more elaborate training protocol and measures
+  against overfitting.
 * Dimensionality reduction is a tricky business which by construction is a
   process where information is lost, while trying to retain the most prominent
   parts. This is exemplified by the very different
   results of the methods used. Still, if the model had learned to produce very
   distinct embeddings, we would also expect to see this even in a 2D space.
-* The autoencoder was *not* trained to classify inputs by label, but to
-  denoise them. Hence the model learns to produce latent codes that help in
-  doing that, and as a result may focus on other parts of the data than those
-  which discriminate between classes.
-* Our model's reconstructions are far from perfect. With maybe a bigger model,
-  more data and longer training, we may see better results.
 """
