@@ -175,57 +175,45 @@ layers to build the autoencoder.
 
 # %%
 class MyEncoder(torch.nn.Module):
-    def __init__(self, nlayers=3, nchannels=16):
+    def __init__(self, channels=[8, 16, 32], input_ndim=40, latent_ndim=10):
         super().__init__()
         self.layers = torch.nn.Sequential()
 
-        self.layers.append(
-            torch.nn.Conv1d(
-                in_channels=1,
-                out_channels=nchannels,
-                kernel_size=3,
-                padding=1,
-                stride=1,
-            )
-        )
-
-        for i in range(nlayers - 1):
-            # convolve and shrink input width by 2x
+        channels = [1] + channels
+        for old_n_channels, new_n_channels in zip(channels[:-1], channels[1:]):
             self.layers.append(
                 torch.nn.Conv1d(
-                    in_channels=nchannels,
-                    out_channels=nchannels,
+                    in_channels=old_n_channels,
+                    out_channels=new_n_channels,
                     kernel_size=3,
                     padding=1,
-                    stride=1,
-                )
-            )
-            self.layers.append(torch.nn.ReLU())
-            self.layers.append(
-                torch.nn.Conv1d(
-                    in_channels=nchannels,
-                    out_channels=nchannels,
-                    kernel_size=3,
-                    padding=1,
+                    padding_mode="replicate",
                     stride=2,
                 )
             )
+            self.layers.append(torch.nn.ReLU())
 
-        # convolve and keep input width
-        self.layers.append(
-            torch.nn.Conv1d(
-                in_channels=nchannels, out_channels=1, kernel_size=3, padding=1
-            )
-        )
-
-        # flatten and add a linear tail
         self.layers.append(torch.nn.Flatten())
 
+        # Calculate in_features for Linear layer
+        dummy_X = torch.empty(1, 1, input_ndim, device="meta")
+        dummy_out = self.layers(dummy_X)
+        in_features = dummy_out.shape[-1]
+
+        # Compress conv results into latent space
+        self.layers.append(
+            torch.nn.Linear(
+                in_features=in_features,
+                out_features=latent_ndim,
+            )
+        )
+        ##self.layers.append(torch.nn.ReLU())
+
     def forward(self, x):
-        # convolutions in torch require an explicit channel dimension to be
-        # present in the data in other words:
-        # inputs of size (nbatch, 40) do not work,
-        # inputs of size (nbatch, 1, 40) do work
+        # Convolutions in torch require an explicit channel dimension to be
+        # present in the data, in other words:
+        #   inputs of size (batch_size, 40) do not work,
+        #   inputs of size (batch_size, 1, 40) do work
         if len(x.shape) == 2:
             return self.layers(torch.unsqueeze(x, dim=1))
         else:
@@ -252,7 +240,7 @@ assert (
 ), f"{latent_h.shape[-1]} !< {X_test.shape[-1]}"
 
 print(f"{X[:1, ...].shape=}")
-model_summary(enc, input_size=X[:1, ...].shape)
+print(model_summary(enc, input_size=X[:1, ...].shape))
 
 # %% [markdown]
 """
@@ -268,52 +256,91 @@ reconstruct from the latent space.
 
 # %%
 class MyDecoder(torch.nn.Module):
-    def __init__(self, nlayers=3, nchannels=16):
+    def __init__(self, channels=[32, 16, 8], latent_ndim=10, output_ndim=40):
         super().__init__()
         self.layers = torch.nn.Sequential()
 
-        for i in range(nlayers - 1):
-            inchannels = 1 if i == 0 else nchannels
-            # deconvolve/upsample and grow input width by 2x
+        # Architecture of the full autoencoder. Used here to help explain the
+        # calculation of smallest_conv_ndim and linear_ndim.
+        #
+        # With channels=[32, 16, 8], latent_ndim=10, output_ndim=40, we have
+        #
+        #   smallest_conv_ndim = 5 = 40 // 2**3
+        #
+        # since we reduce input_ndim = output_ndim = 40 by factor of 2 in each
+        # of the len(channels) = 3 conv steps in the encoder because of
+        # Conv1d(..., stride=2).
+        #
+        # Further, we have
+        #
+        #   linear_ndim = 160 = 32 * 5
+        #
+        # Layer (type:depth-idx)                   Input Shape               Output Shape
+        # ================================================================================
+        # MyAutoencoder                            [1, 40]                   [1, 40]
+        # ├─MyEncoder: 1-1                         [1, 40]                   [1, 10]
+        # │    └─Sequential: 2-1                   [1, 1, 40]                [1, 10]
+        # │    │    └─Conv1d: 3-1                  [1, 1, 40]                [1, 8, 20]
+        # │    │    └─ReLU: 3-2                    [1, 8, 20]                [1, 8, 20]
+        # │    │    └─Conv1d: 3-3                  [1, 8, 20]                [1, 16, 10]
+        # │    │    └─ReLU: 3-4                    [1, 16, 10]               [1, 16, 10]
+        # │    │    └─Conv1d: 3-5                  [1, 16, 10]               [1, 32, 5]
+        # │    │    └─ReLU: 3-6                    [1, 32, 5]                [1, 32, 5]
+        # │    │    └─Flatten: 3-7                 [1, 32, 5]                [1, 160]
+        # │    │    └─Linear: 3-8                  [1, 160]                  [1, 10]
+        # ├─MyDecoder: 1-2                         [1, 10]                   [1, 40]
+        # │    └─Sequential: 2-2                   [1, 10]                   [1, 40]
+        # │    │    └─Linear: 3-9                  [1, 10]                   [1, 160]
+        # │    │    └─ReLU: 3-10                   [1, 160]                  [1, 160]
+        # │    │    └─Unflatten: 3-11              [1, 160]                  [1, 32, 5]
+        # │    │    └─ConvTranspose1d: 3-12        [1, 32, 5]                [1, 16, 10]
+        # │    │    └─ReLU: 3-13                   [1, 16, 10]               [1, 16, 10]
+        # │    │    └─ConvTranspose1d: 3-14        [1, 16, 10]               [1, 8, 20]
+        # │    │    └─ReLU: 3-15                   [1, 8, 20]                [1, 8, 20]
+        # │    │    └─ConvTranspose1d: 3-16        [1, 8, 20]                [1, 1, 40]
+        # │    │    └─Flatten: 3-17                [1, 1, 40]                [1, 40]
+        # ================================================================================
+
+        smallest_conv_ndim = output_ndim // (2 ** len(channels))
+        linear_ndim = channels[0] * smallest_conv_ndim
+
+        # Decompress latent
+        self.layers.append(
+            torch.nn.Linear(
+                in_features=latent_ndim,
+                out_features=linear_ndim,
+            )
+        )
+        self.layers.append(torch.nn.ReLU())
+
+        # Reshape for conv upsampling
+        self.layers.append(
+            torch.nn.Unflatten(1, (channels[0], smallest_conv_ndim))
+        )
+
+        channels = channels + [1]
+        for old_n_channels, new_n_channels in zip(channels[:-1], channels[1:]):
             self.layers.append(
                 torch.nn.ConvTranspose1d(
-                    in_channels=inchannels,
-                    out_channels=nchannels,
-                    kernel_size=5,
-                    padding=2,
+                    in_channels=old_n_channels,
+                    out_channels=new_n_channels,
+                    kernel_size=3,
+                    padding=1,
+                    padding_mode="zeros",
                     stride=2,
                     output_padding=1,
                 )
             )
             self.layers.append(torch.nn.ReLU())
-            self.layers.append(
-                torch.nn.Conv1d(
-                    in_channels=nchannels,
-                    out_channels=nchannels,
-                    kernel_size=3,
-                    padding=1,
-                    stride=1,
-                )
-            )
 
-        # convolve and keep input width
-        self.layers.append(
-            torch.nn.Conv1d(
-                in_channels=nchannels, out_channels=1, kernel_size=3, padding=1
-            )
-        )
+        # Remove last ReLU
+        self.layers.pop(-1)
 
+        # Remove channel dim (default is Flatten(..., start_dim=1))
         self.layers.append(torch.nn.Flatten())
 
     def forward(self, x):
-        # convolutions in torch require an explicit channel dimension to be
-        # present in the data in other words:
-        # inputs of size (nbatch, 40) do not work,
-        # inputs of size (nbatch, 1, 40) do work
-        if len(x.shape) == 2:
-            return self.layers(torch.unsqueeze(x, dim=1))
-        else:
-            return self.layers(x)
+        return self.layers(x)
 
 
 # %%
@@ -325,22 +352,32 @@ assert (
 ), f"{X_prime.squeeze(1).shape} != {X_test.shape}"
 
 print(f"{latent_h[:1, ...].shape=}")
-model_summary(dec, input_size=latent_h[:1, ...].shape)
+print(model_summary(dec, input_size=latent_h[:1, ...].shape))
 
 # %% [markdown]
 """
-We have now all the lego bricks in place to compose an autoencoder. We do this
-by combining the encoder and decoder in yet another `torch.nn.Module`.
+Now we have now all the lego bricks in place to compose an autoencoder. We do
+this by combining the encoder and decoder in yet another `torch.nn.Module`.
 """
 
 
 # %%
 class MyAutoencoder(torch.nn.Module):
-    def __init__(self, nlayers=3, nchannels=16):
+    def __init__(
+        self, enc_channels=[8, 16, 32], latent_ndim=10, input_ndim=40
+    ):
         super().__init__()
 
-        self.enc = MyEncoder(nlayers, nchannels)
-        self.dec = MyDecoder(nlayers, nchannels)
+        self.enc = MyEncoder(
+            channels=enc_channels,
+            input_ndim=input_ndim,
+            latent_ndim=latent_ndim,
+        )
+        self.dec = MyDecoder(
+            channels=enc_channels[::-1],
+            latent_ndim=latent_ndim,
+            output_ndim=input_ndim,
+        )
 
     def forward(self, x):
         # construct the latents
@@ -366,7 +403,7 @@ assert (
 ), f"{X_prime.squeeze(1).shape} != {X_test.shape}"
 
 print(f"{X[:1, ...].shape=}")
-model_summary(model, input_size=X[:1, ...].shape)
+print(model_summary(model, input_size=X[:1, ...].shape))
 
 
 # %% [markdown]
@@ -479,6 +516,7 @@ for batch_idx, (gs, (train_noisy, train_clean)) in enumerate(
 Let's define a helper function that will run the training.
 """
 
+
 # %%
 def train_autoencoder(
     model,
@@ -489,8 +527,7 @@ def train_autoencoder(
     max_epochs,
     log_every=5,
     use_gpu=False,
-    logs=defaultdict(list)
-
+    logs=defaultdict(list),
 ):
     if use_gpu and torch.cuda.is_available():
         device = torch.device("cuda:0")
@@ -501,9 +538,11 @@ def train_autoencoder(
     model.train()
 
     for epoch in range(max_epochs):
+
+        # For calculating loss averages in one epoch
         train_loss_epoch_sum = 0.0
         test_loss_epoch_sum = 0.0
-        # perform train for one epoch
+
         for train_noisy, train_clean in train_dataloader:
             # Discard labels if using StackDataset
             if isinstance(train_noisy, Sequence):
@@ -517,7 +556,9 @@ def train_autoencoder(
             X_prime_train = model(X_train_noisy.to(device))
 
             # compute loss
-            train_loss = loss_func(X_prime_train, X_train_clean.squeeze().to(device))
+            train_loss = loss_func(
+                X_prime_train, X_train_clean.squeeze().to(device)
+            )
 
             # compute gradient
             train_loss.backward()
@@ -540,10 +581,14 @@ def train_autoencoder(
                 X_test_clean = test_clean
 
             X_prime_test = model(X_test_noisy.to(device))
-            test_loss = loss_func(X_prime_test, X_test_clean.squeeze().to(device))
+            test_loss = loss_func(
+                X_prime_test, X_test_clean.squeeze().to(device)
+            )
             test_loss_epoch_sum += test_loss.item()
 
-        logs["train_losses"].append(train_loss_epoch_sum / len(train_dataloader))
+        logs["train_losses"].append(
+            train_loss_epoch_sum / len(train_dataloader)
+        )
         logs["test_losses"].append(test_loss_epoch_sum / len(test_dataloader))
 
         if (epoch + 1) % log_every == 0 or (epoch + 1) == max_epochs:
@@ -551,6 +596,7 @@ def train_autoencoder(
                 f"{epoch+1:02.0f}/{max_epochs} :: training loss {train_loss.mean():03.4f}; test loss {test_loss.mean():03.4f}"
             )
     return logs
+
 
 # %% [markdown]
 """
@@ -567,13 +613,13 @@ assert (
     nsamples == 4_000
 ), f"number of samples for MNIST1D is not 4_000 but {nsamples}"
 
-model = MyAutoencoder(nchannels=32)
+model = MyAutoencoder(enc_channels=[8, 16, 32])
 print(
     model_summary(model, input_size=next(iter(train_dataloader))[0][0].shape)
 )
 
 learning_rate = 1e-3
-max_epochs = 20
+max_epochs = 50
 log_every = 5
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
@@ -688,6 +734,8 @@ core reasons for this effect are:
 The model predictions are actually not very good -- too much smoothing in some
 parts of a signal, following the input signal too much in other parts. The same
 could probably be acheived by a much simpler method such as a moving average :)
+Also, looking at the loss plot, it seems that the training is not yet
+converged.
 
 Try to improve this by varying the following parameters and observe their
 effect on the reconstruction. Re-execute the cells above which define the model,
@@ -695,11 +743,12 @@ set the hyper-parameters and run the training.
 
 Training:
 
-* max_epochs (try training for 200 epochs)
-* learning_rate (try 10x and 1/10 of the value above)
+* `max_epochs`: try training for 200 epochs
+* `learning_rate`: try 10x and 1/10 of the value above
 
 Model architecture:
 
-* nchannels
-* nlayers (bigger means smaller latent space size)
+* `enc_channels`: try more channels per convolution and/or deeper models, such
+   as `[32,64,128]` (more) or `[16,32,64,128,256]` (deeper)
+* `latent_ndim`: the default is 10, try setting it to 2 or 20, what happens?
 """
