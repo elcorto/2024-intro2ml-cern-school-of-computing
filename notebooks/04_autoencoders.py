@@ -660,7 +660,7 @@ def train_autoencoder(
 
         if (epoch + 1) % log_every == 0 or (epoch + 1) == max_epochs:
             print(
-                f"{epoch+1:02.0f}/{max_epochs} :: training loss {train_loss.mean():03.4f}; test loss {test_loss.mean():03.4f}"
+                f"{epoch+1:02.0f}/{max_epochs} :: training loss {train_loss.mean():03.5f}; test loss {test_loss.mean():03.5f}"
             )
     return logs
 
