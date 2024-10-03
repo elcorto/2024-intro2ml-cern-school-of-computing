@@ -845,6 +845,9 @@ latent embedding `h=enc(X_test_noisy[i])` of the noisy input.
 
 # %%
 with torch.no_grad():
+    model.eval()
+
+    # 2x 10 figures for our 10 labels [0,1,...,9]
     grid_data = gridspec.GridSpec(nrows=2, ncols=5)
     grid_latent = gridspec.GridSpec(nrows=2, ncols=5)
 
@@ -901,7 +904,7 @@ some structure there.
 """
 
 # %%
-from sklearn.manifold import MDS, TSNE, Isomap
+from sklearn.manifold import MDS, TSNE
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
@@ -912,7 +915,6 @@ emb_methods = dict(
     tsne=TSNE(n_components=2),
     mds=MDS(n_components=2),
     pca=PCA(n_components=2),
-    isomap=Isomap(n_components=2),
 )
 
 ncols = 1
@@ -920,10 +922,10 @@ nrows = len(emb_methods)
 fig, axs = plt.subplots(
     nrows=nrows, ncols=ncols, figsize=(5 * ncols, 5 * nrows)
 )
-for (name, emb), ax in zip(emb_methods.items(), axs):
+for (emb_name, emb), ax in zip(emb_methods.items(), axs):
     latent_h_proj = emb.fit_transform(latent_h_scaled)
     ax.scatter(latent_h_proj[:, 0], latent_h_proj[:, 1], c=c)
-    ax.set_title(name)
+    ax.set_title(emb_name)
 
 # %% [markdown]
 """
@@ -945,12 +947,73 @@ several reasons for this.
   over-interpreting any method's results. Still, if the model had learned to
   produce very distinct embeddings, we would also expect to see this even in a
   2D space.
+
+To get a feeling of how easy (or not) the MNIST1D dataset is in comparison to
+MNIST, let's now plot a 2D embedding of the *input* data for both of them. We
+reproduce Fig. 3 of the MNIST1D paper
+(https://proceedings.mlr.press/v235/greydanus24a.html).
 """
+
+# %%
+from sklearn.datasets import fetch_openml
+
+# Download once from https://www.openml.org/, data is cached in ~/scikit_learn_data/
+X_mnist, y_mnist = fetch_openml("mnist_784", return_X_y=True, as_frame=False)
+X_mnist1d, y_mnist1d = clean_mnist1d["x"], clean_mnist1d["y"]
+
+print(f"{X_mnist.shape=} {y_mnist.shape=}")
+print(f"{X_mnist1d.shape=} {y_mnist1d.shape=}")
+
+# MNIST has 70,000 samples, let's take a smaller random sub-sample. Also the
+# MNIST labels are strings '0', '1', ..., convert them to ints.
+msk = np.random.choice(range(X_mnist.shape[0]), size=2000, replace=False)
+X_mnist = X_mnist[msk, :]
+y_mnist = y_mnist[msk].astype("int")
+
+msk = np.random.choice(range(X_mnist1d.shape[0]), size=2000, replace=False)
+X_mnist1d = X_mnist1d[msk, :]
+y_mnist1d = y_mnist1d[msk]
+
+
+# %%
+emb_methods = dict(
+    tsne=TSNE(n_components=2),
+    ##mds=MDS(n_components=2), # slow
+    pca=PCA(n_components=2),
+)
+
+ncols = 2
+nrows = len(emb_methods)
+fig, axs = plt.subplots(
+    nrows=nrows, ncols=ncols, figsize=(5 * ncols, 5 * nrows)
+)
+for icol, (dset_name, X, y) in enumerate(
+    [("MNIST", X_mnist, y_mnist), ("MNIST-1D", X_mnist1d, y_mnist1d)]
+):
+    c = [colors[ii] for ii in y]
+    for irow, (emb_name, emb) in enumerate(emb_methods.items()):
+        print(f"processing: {dset_name} {emb_name}")
+        ax = axs[irow, icol]
+        X_emb = emb.fit_transform(StandardScaler().fit_transform(X))
+        ax.scatter(X_emb[:, 0], X_emb[:, 1], c=c)
+        ax.set_title(f"{dset_name}: {emb_name}")
 
 
 # %% [markdown]
 """
-## **Exercise 04.2** A simpler task? Train a plain autoencoder
+The t-SNE plot of MNIST shows fairly clear clusters, which suggests that MNIST
+is an easy dataset to solve (when talking about classification). Therefore we
+expect it's latent codes to cluster as well (which we don't do here). In
+contrast, the embedding of the MNIST-1D pixel space looks as unstructured as
+its `h` projections, which implies that this dataset is a harder classification
+task. Since our autoencoder doesn't even learn a classification (group inputs
+by labels) but a reconstruction, this may explain why its learned latent `h`
+doesn't show structure in the 2D embedding.
+"""
+
+# %% [markdown]
+"""
+## **(Bonus) Exercise 04.2** A simpler task? Train a plain autoencoder
 
 So far we dealt with a denoising task, where the model learns to map noisy
 inputs to clean targets.
