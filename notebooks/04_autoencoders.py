@@ -693,7 +693,9 @@ enc_channels = [8, 16, 32]
 ##)
 
 model = MyAutoencoder(enc_channels=enc_channels, latent_ndim=latent_ndim)
-optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
+optimizer = torch.optim.AdamW(
+    model.parameters(), lr=learning_rate, weight_decay=0.01
+)
 loss_func = torch.nn.MSELoss()
 
 # Initialize empty loss logs once.
