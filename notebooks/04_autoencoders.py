@@ -799,7 +799,7 @@ reconstruction.
 However, the model predictions, i.e. the denoised reconstructions of clean
 data, are actually not very good -- too much smoothing in some parts of a
 signal, following the input signal too much in other parts. The same could
-probably be acheived by a much simpler method such as a moving average :) Also,
+probably be achieved by a much simpler method such as a moving average :) Also,
 looking at the loss plot, it seems that the training is not yet converged.
 
 Try to improve this by varying the following parameters and observe their
@@ -833,7 +833,7 @@ Note on `enc_channels`: Deeper models with more conv steps such as
 half the dimension with every conv step using strided convolutions: 40 - 20 -
 10 - 5 (and double them in the decoder). The dimension in each step must be (a)
 a multiple of 2 and (b) non-zero. To make the model deeper, we'd need to drop
-strided convolutions and use another way to shink the dimension, e.g. by
+strided convolutions and use another way to shrink the dimension, e.g. by
 combining normal `stride=1` convolutions with max or average pooling layers.
 """
 
@@ -842,7 +842,8 @@ combining normal `stride=1` convolutions with max or average pooling layers.
 ## Visualize the latent space
 
 We now plot, separate for each label, each clean `X_test_clean[i]` and the
-latent embedding `h=enc(X_test_noisy[i])` of the noisy input.
+latent embedding `h=enc(X_test_noisy[i])` of the noisy input. Do we find a
+correspondence between input and latent representation?
 """
 
 # %%
@@ -902,7 +903,13 @@ We find that all latent `h` vectors look very similar, so it is hard to
 visually find clusters of embeddings that belong to a certain label.
 
 Let's project the latent representations into a 2D space and see if we can find
-some structure there.
+some structure there. We use several methods from `scikit-learn`, namely
+[t-distributed Stochastic Neighbor Embedding
+(t-SNE)](https://scikit-learn.org/stable/modules/manifold.html#t-distributed-stochastic-neighbor-embedding-t-sne),
+[Multi-dimensional Scaling
+(MDS)](https://scikit-learn.org/stable/modules/manifold.html#multi-dimensional-scaling-mds)
+and an classic [Principal component analysis
+(PCA)](https://scikit-learn.org/stable/modules/decomposition.html#principal-component-analysis-pca).
 """
 
 # %%
@@ -931,17 +938,16 @@ for (emb_name, emb), ax in zip(emb_methods.items(), axs):
 
 # %% [markdown]
 """
-We see that in the 2D projections, there are cluster-like structures for some
-methods, while points belonging to a label are loosely grouped together by
-another method.
-
-Yet, overall there is no clear clustering into groups by label. There are
-several reasons for this.
+We see that overall, there is no clear clustering into groups **by label**.
+However, esp. in the t-SNE plot, we find many small clusters, may of which
+belong to a label. The PCA and MDS plots don't show this structure. This can be
+explained as follows.
 
 * The autoencoder was *not* trained to classify inputs by label, but to
   reconstruct and denoise them. Hence the model learns to produce latent codes
-  that help in doing that, and as a result may focus on other parts of the data
-  than those which discriminate between classes.
+  that help in doing that, and as a result may focus on other structural elements
+  of the data than those which a classification model would use to discriminate
+  between classes.
 * Dimensionality reduction is a tricky business which by construction is a
   process where information is lost, while trying to retain the most prominent
   parts. This is exemplified by the different results of the methods used.
@@ -950,10 +956,10 @@ several reasons for this.
   produce very distinct embeddings, we would also expect to see this even in a
   2D space.
 
-To get a feeling of how easy (or not) the MNIST1D dataset is in comparison to
-MNIST, let's now plot a 2D embedding of the *input* data for both of them. We
-reproduce Fig. 3 of the MNIST1D paper
-(https://proceedings.mlr.press/v235/greydanus24a.html).
+To drill further down, let's try to get a feeling for how easy (or not) the
+MNIST1D dataset is in comparison to MNIST. To do that, we now plot a 2D
+embedding of the *input* data for both of them. We reproduce Fig. 3 of the
+MNIST1D paper (https://proceedings.mlr.press/v235/greydanus24a.html).
 """
 
 # %%
@@ -1004,13 +1010,15 @@ for icol, (dset_name, X, y) in enumerate(
 # %% [markdown]
 """
 The t-SNE plot of MNIST shows fairly clear clusters, which suggests that MNIST
-is an easy dataset to solve (when talking about classification). Therefore we
-expect it's latent codes to cluster as well (which we don't do here). In
-contrast, the embedding of the MNIST-1D pixel space looks as unstructured as
+is an easy dataset to solve, when talking about classification. Therefore we
+expect it's latent codes to cluster as well (which we don't do here).
+
+In contrast, the embedding of the MNIST-1D pixel space looks similar to that of
 its `h` projections, which implies that this dataset is a harder classification
-task. Since our autoencoder doesn't even learn a classification (group inputs
-by labels) but a reconstruction, this may explain why its learned latent `h`
-doesn't show structure in the 2D embedding.
+task. Again we find many small clusters that share a label. Given that
+similarity, we may conclude that the autoencoder, not knowing about labels,
+focuses on structural elements belonging to those sub-clusters in order to
+fulfill its task, which is reconstruction.
 """
 
 # %% [markdown]
