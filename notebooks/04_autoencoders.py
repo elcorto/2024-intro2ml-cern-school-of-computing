@@ -607,13 +607,13 @@ def train_autoencoder(
         device = torch.device("cpu")
 
     model = model.to(device)
-    model.train()
 
     for epoch in range(max_epochs):
         # For calculating loss averages in one epoch
         train_loss_epoch_sum = 0.0
         test_loss_epoch_sum = 0.0
 
+        model.train()
         for train_noisy, train_clean in train_dataloader:
             # Discard labels if using StackDataset
             if isinstance(train_noisy, Sequence):
@@ -642,6 +642,7 @@ def train_autoencoder(
 
             train_loss_epoch_sum += train_loss.item()
 
+        model.eval()
         for test_noisy, test_clean in test_dataloader:
             # Discard labels if using StackDataset
             if isinstance(test_noisy, Sequence):
