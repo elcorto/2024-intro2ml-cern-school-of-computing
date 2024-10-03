@@ -168,6 +168,10 @@ The task of the autoencoder is to reconstruct the input as best as possible.
 This task is far from easy, as the autoencoder is forced to shrink the data
 into the latent space.
 
+In our **denoising** case, the task is even harder, since the autoencoder shall
+not only reconstruct clean data from clean inputs, but is given noisy inputs
+and is tasked to reconstruct the unknown clean version.
+
 Since we have have the same MNIST1D data as before, we'll use convolutional
 layers to build the autoencoder. In particular, we follow this design for 2D
 convolutions of images, adapted to our 1D case.
@@ -450,7 +454,7 @@ print(model_summary(model, input_size=X[:1, ...].shape))
 """
 ## Training an autoencoder
 
-Training the autoencoder works the same as before.
+Training the autoencoder requires these steps:
 
 1. create the dataset
 2. create the loaders
@@ -458,38 +462,53 @@ Training the autoencoder works the same as before.
 4. setup the optimizer
 5. loop through epochs
 
-Here we use a torch feature `StackDataset` to combine noisy inputs and clean
-targets.
+Fist, we prepare the data. We use a torch feature `StackDataset` to
+combine noisy inputs and clean targets.
 """
 
+
 # %%
-# noisy data
-dataset_train_noisy = MNIST1D(mnist1d_args=noisy_config, train=True)
-dataset_test_noisy = MNIST1D(mnist1d_args=noisy_config, train=False)
-assert len(dataset_train_noisy) == 3600
-assert len(dataset_test_noisy) == 400
+def get_dataloaders(denoising=True, batch_size=64):
+    # clean data
+    dataset_train_clean = MNIST1D(mnist1d_args=clean_config, train=True)
+    dataset_test_clean = MNIST1D(mnist1d_args=clean_config, train=False)
+    assert len(dataset_train_clean) == 3600
+    assert len(dataset_test_clean) == 400
 
-# clean data
-dataset_train_clean = MNIST1D(mnist1d_args=clean_config, train=True)
-dataset_test_clean = MNIST1D(mnist1d_args=clean_config, train=False)
-assert len(dataset_train_clean) == 3600
-assert len(dataset_test_clean) == 400
+    if denoising:
+        # noisy data
+        dataset_train_noisy = MNIST1D(mnist1d_args=noisy_config, train=True)
+        dataset_test_noisy = MNIST1D(mnist1d_args=noisy_config, train=False)
+        assert len(dataset_train_noisy) == 3600
+        assert len(dataset_test_noisy) == 400
 
-# stacked as paired sequences, like Python's zip()
-dataset_train = torch.utils.data.StackDataset(
-    dataset_train_noisy, dataset_train_clean
-)
-dataset_test = torch.utils.data.StackDataset(
-    dataset_test_noisy, dataset_test_clean
-)
+        dataset_train_input = dataset_train_noisy
+        dataset_train_output = dataset_train_clean
+        dataset_test_input = dataset_test_noisy
+        dataset_test_output = dataset_test_clean
+    else:
+        dataset_train_input = dataset_train_clean
+        dataset_train_output = dataset_train_clean
+        dataset_test_input = dataset_test_clean
+        dataset_test_output = dataset_test_clean
 
-batch_size = 64
-train_dataloader = DataLoader(
-    dataset_train, batch_size=batch_size, shuffle=True
-)
-test_dataloader = DataLoader(
-    dataset_test, batch_size=batch_size, shuffle=False
-)
+    # stacked as paired sequences, like Python's zip()
+    dataset_train = torch.utils.data.StackDataset(
+        dataset_train_input, dataset_train_output
+    )
+    dataset_test = torch.utils.data.StackDataset(
+        dataset_test_input, dataset_test_output
+    )
+
+    train_dataloader = DataLoader(
+        dataset_train, batch_size=batch_size, shuffle=True
+    )
+    test_dataloader = DataLoader(
+        dataset_test, batch_size=batch_size, shuffle=False
+    )
+
+    return train_dataloader, test_dataloader
+
 
 # %% [markdown]
 #
@@ -497,6 +516,11 @@ test_dataloader = DataLoader(
 # of data, which we create by letting `train_dataloader` run one iteration.
 
 # %%
+batch_size = 64
+train_dataloader, test_dataloader = get_dataloaders(
+    batch_size=batch_size, denoising=True
+)
+
 train_noisy, train_clean = next(iter(train_dataloader))
 
 X_train_noisy, y_train_noisy = train_noisy
@@ -887,9 +911,9 @@ Yet, overall there is no clear clustering into groups by label. There are
 several reasons for this.
 
 * The autoencoder was *not* trained to classify inputs by label, but to
-  denoise them. Hence the model learns to produce latent codes that help in
-  doing that, and as a result may focus on other parts of the data than those
-  which discriminate between classes.
+  reconstruct and denoise them. Hence the model learns to produce latent codes
+  that help in doing that, and as a result may focus on other parts of the data
+  than those which discriminate between classes.
 * Dimensionality reduction is a tricky business which by construction is a
   process where information is lost, while trying to retain the most prominent
   parts. This is exemplified by the different results of the methods used.
@@ -897,4 +921,36 @@ several reasons for this.
   over-interpreting any method's results. Still, if the model had learned to
   produce very distinct embeddings, we would also expect to see this even in a
   2D space.
+"""
+
+
+# %% [markdown]
+"""
+## **Exercise 04.2** A simpler task? Train a plain autoencoder
+
+So far we dealt with a denoising task, where the model learns to map noisy
+inputs to clean targets.
+
+Now we look at a (maybe simpler) task, which is in fact the first application
+for which autoencoders were used: reconstruct clean targets from **clean**
+inputs.
+
+To do that, locate the cell above which calls `get_dataloaders()`
+
+```py
+train_dataloader, test_dataloader = get_dataloaders(
+    batch_size=batch_size, denoising=True
+)
+```
+
+and change `denoising` to `False`.
+
+```py
+train_dataloader, test_dataloader = get_dataloaders(
+    batch_size=batch_size, denoising=False
+)
+```
+
+No other change is necessary. Re-execute all following cells. Does this have an
+effect on the 2D projections of the latent `h`?
 """
