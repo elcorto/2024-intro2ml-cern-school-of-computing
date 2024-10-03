@@ -91,25 +91,22 @@ clean_config = get_dataset_args()
 clean_config.iid_noise_scale = 0
 clean_config.corr_noise_scale = 0
 clean_config.seed = 40
-clean = make_dataset(clean_config)
-cleanX, cleany = clean["x"], clean["y"]
+clean_mnist1d = make_dataset(clean_config)
+X_clean = clean_mnist1d["x"]
 
 # use iid noise only for the time being
 noisy_config = get_dataset_args()
 noisy_config.iid_noise_scale = 0.05
 noisy_config.corr_noise_scale = 0
 noisy_config.seed = 40
-data = make_dataset(noisy_config)
+noisy_mnist1d = make_dataset(noisy_config)
 
-X, y = data["x"], data["y"]
+X_noisy, y_noisy = noisy_mnist1d["x"], noisy_mnist1d["y"]
+X_noisy = torch.from_numpy(X_noisy).float()
 
 # 4000 data points of dimension 40
-print(f"{X.shape=}")
-print(f"{y.shape=}")
-
-# The MNIST1D Dataset produces numpy arrays. Lets convert to torch.Tensor, with
-# torch.float32 dtype.
-X = torch.from_numpy(X).float()
+print(f"{X_noisy.shape=}")
+print(f"{y_noisy.shape=}")
 
 # %% [markdown]
 """
@@ -124,9 +121,9 @@ color_clean = "tab:orange"
 for sample in range(10):
     col = sample % 5
     row = sample // 5
-    ax[row, col].plot(X[sample, ...], label="noisy", color=color_noisy)
-    ax[row, col].plot(cleanX[sample, ...], label="clean", color=color_clean)
-    label = y[sample]
+    ax[row, col].plot(X_noisy[sample, ...], label="noisy", color=color_noisy)
+    ax[row, col].plot(X_clean[sample, ...], label="clean", color=color_clean)
+    label = y_noisy[sample]
     ax[row, col].set_title(f"label {label}")
     if row == 1:
         ax[row, col].set_xlabel("samples / a.u.")
@@ -257,7 +254,7 @@ use the `model_summary()` helper function.
 enc = MyEncoder()
 
 # extract only first 8 samples for testing
-X_test = X[:8, ...]
+X_test = X_noisy[:8, ...]
 
 latent_h = enc(X_test)
 
@@ -265,8 +262,8 @@ assert (
     latent_h.shape[-1] < X_test.shape[-1]
 ), f"{latent_h.shape[-1]} !< {X_test.shape[-1]}"
 
-print(f"{X[:1, ...].shape=}")
-print(model_summary(enc, input_size=X[:1, ...].shape))
+print(f"{X_test[:1, ...].shape=}")
+print(model_summary(enc, input_size=X_test[:1, ...].shape))
 
 # %% [markdown]
 """
@@ -446,8 +443,8 @@ assert (
     X_prime.squeeze(1).shape == X_test.shape
 ), f"{X_prime.squeeze(1).shape} != {X_test.shape}"
 
-print(f"{X[:1, ...].shape=}")
-print(model_summary(model, input_size=X[:1, ...].shape))
+print(f"{X_test[:1, ...].shape=}")
+print(model_summary(model, input_size=X_test[:1, ...].shape))
 
 
 # %% [markdown]
