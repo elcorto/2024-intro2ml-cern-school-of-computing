@@ -461,9 +461,14 @@ Training the autoencoder requires these steps:
 3. setup the model
 4. setup the optimizer
 5. loop through epochs
+"""
 
-Fist, we prepare the data. We use a torch feature `StackDataset` to
-combine noisy inputs and clean targets.
+# %% [markdown]
+"""
+### Data
+
+Fist, we prepare the data. We use a torch feature `StackDataset` to combine
+noisy inputs and clean targets.
 """
 
 
@@ -581,6 +586,8 @@ for batch_idx, (gs, (train_noisy, train_clean)) in enumerate(
 
 # %% [markdown]
 """
+### Model setup, hyper-parameters, training
+
 Let's define a helper function that will run the training.
 """
 
@@ -675,20 +682,28 @@ tensor from `train_dataloader`, which has shape `[batch_size, 1, 40]`.
 """
 
 # %%
-model = MyAutoencoder(enc_channels=[8, 16, 32])
-print(
-    model_summary(model, input_size=next(iter(train_dataloader))[0][0].shape)
-)
-
+# hyper-parameters that influence model and training
 learning_rate = 1e-3
 max_epochs = 50
-log_every = 5
+latent_ndim = 10
+enc_channels = [8, 16, 32]
 
+# Defined above already. We skip this here since this is a bit slow.
+##batch_size = 64
+##train_dataloader, test_dataloader = get_dataloaders(
+##    batch_size=batch_size, denoising=True
+##)
+
+model = MyAutoencoder(enc_channels=enc_channels, latent_ndim=latent_ndim)
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 loss_func = torch.nn.MSELoss()
 
 # Initialize empty loss logs once.
 logs = defaultdict(list)
+
+print(
+    model_summary(model, input_size=next(iter(train_dataloader))[0][0].shape)
+)
 
 # %% [markdown]
 """
@@ -707,13 +722,13 @@ logs = train_autoencoder(
     train_dataloader=train_dataloader,
     test_dataloader=test_dataloader,
     max_epochs=max_epochs,
-    log_every=log_every,
+    log_every=5,
     logs=logs,
 )
 
 # %% [markdown]
 """
-# Plot loss (train progress) and predictions
+### Plot loss (train progress) and predictions
 """
 
 # %%
@@ -801,6 +816,17 @@ Model architecture:
 * `enc_channels`: try more channels per convolution, such as `[32,64,128]` or
   `[64,128,256]`
 * `latent_ndim`: the default is 10, try setting it to 2 or 20, what happens?
+
+To do that, locate the cell above were we have
+
+```py
+learning_rate = 1e-3
+max_epochs = 50
+latent_ndim = 10
+enc_channels = [8, 16, 32]
+```
+
+and change parameters as need. The re-execute all following cells.
 
 Note on `enc_channels`: Deeper models with more conv steps such as
 `[8,16,32,64,128,256]` is not possible with our code since in the encoder we
@@ -939,17 +965,11 @@ To do that, locate the cell above which calls `get_dataloaders()`
 
 ```py
 train_dataloader, test_dataloader = get_dataloaders(
-    batch_size=batch_size, denoising=True
+    batch_size=batch_size, denoising=True  # <<< change this to False
 )
 ```
 
 and change `denoising` to `False`.
-
-```py
-train_dataloader, test_dataloader = get_dataloaders(
-    batch_size=batch_size, denoising=False
-)
-```
 
 No other change is necessary. Re-execute all following cells. Does this have an
 effect on the 2D projections of the latent `h`?
