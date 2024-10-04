@@ -92,7 +92,7 @@ clean_config.iid_noise_scale = 0
 clean_config.corr_noise_scale = 0
 clean_config.seed = 40
 clean_mnist1d = make_dataset(clean_config)
-X_clean = clean_mnist1d["x"]
+X_clean, y_clean = clean_mnist1d["x"], clean_mnist1d["y"]
 
 # use iid noise only for the time being
 noisy_config = get_dataset_args()
@@ -100,8 +100,12 @@ noisy_config.iid_noise_scale = 0.05
 noisy_config.corr_noise_scale = 0
 noisy_config.seed = 40
 noisy_mnist1d = make_dataset(noisy_config)
-
 X_noisy, y_noisy = noisy_mnist1d["x"], noisy_mnist1d["y"]
+
+# We use the same random seed, so this must be the same
+assert (y_clean == y_noisy).all()
+
+# Convert numpy -> torch for usage in next cells
 X_noisy = torch.from_numpy(X_noisy).float()
 
 # 4000 data points of dimension 40
