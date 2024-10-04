@@ -6,9 +6,7 @@ https://indico.gsi.de/event/19869/
 
 > [!IMPORTANT]
 > Please install the software components as described below **before** the
-> course and try to make sure that things work. If you run into problems, we
-> will of course help you fix them on day 1 of course, but the goal is that
-> most learners have their a software setup ready to go.
+> course.
 
 
 * If you don't have a local Python installation, try
@@ -67,7 +65,7 @@ https://indico.gsi.de/event/19869/
 
 ## Check your software stack
 
-This repo has a small utility prepared which can check if you software
+This repo has a small utility prepared which can check if your software
 environment is ready. Either run
 
 ```sh
