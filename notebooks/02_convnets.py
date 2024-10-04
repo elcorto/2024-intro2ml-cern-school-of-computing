@@ -13,8 +13,8 @@
 #     name: python3
 # ---
 
-# %%
-r"""
+# %% [markdown]
+"""
 # Convolutional Neural Networks
 
 We covered Multi-layer Perceptrons (MLPs) in the last exercise. We now want to explore using `pytorch` for ML more. For this, we also will start looking into another popular network architecture called convolutional neural networks.
@@ -61,7 +61,6 @@ For didactical purposes, we fix the pseudorandomness to certain seed values (i.e
 """
 
 # %%
-
 import numpy as np
 import torch
 
@@ -445,5 +444,3 @@ ax[1].legend()
 
 f.suptitle("CNN Classification Learning Curves")
 f.savefig("mnist1d_classification_learning_curve.svg")
-# %%
-
