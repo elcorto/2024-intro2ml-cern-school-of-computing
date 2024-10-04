@@ -690,7 +690,13 @@ max_epochs = 50
 latent_ndim = 10
 enc_channels = [8, 16, 32]
 
-# Defined above already. We skip this here since this is a bit slow.
+# Regularization parameter to prevent overfitting. This is the AdamW
+# optimizer's default value.
+weight_decay = 0.01
+
+# Defined above already. We skip this here since this is a bit slow. If you
+# want to change batch_size (yet another hyper-parameter!) do it here or in the
+# cell above where we called get_dataloaders().
 ##batch_size = 64
 ##train_dataloader, test_dataloader = get_dataloaders(
 ##    batch_size=batch_size, denoising=True
@@ -698,7 +704,7 @@ enc_channels = [8, 16, 32]
 
 model = MyAutoencoder(enc_channels=enc_channels, latent_ndim=latent_ndim)
 optimizer = torch.optim.AdamW(
-    model.parameters(), lr=learning_rate, weight_decay=0.01
+    model.parameters(), lr=learning_rate, weight_decay=weight_decay
 )
 loss_func = torch.nn.MSELoss()
 
