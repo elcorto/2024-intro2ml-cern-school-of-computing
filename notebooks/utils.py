@@ -8,6 +8,7 @@ import torch
 import torchinfo
 from mnist1d.data import get_dataset_args, make_dataset
 from sklearn.model_selection import train_test_split
+from matplotlib import pyplot as plt, colormaps
 
 
 class MNIST1D(torch.utils.data.Dataset):
@@ -95,7 +96,23 @@ def import_check(fn: str):
                     if hasattr(pkg, "__version__"):
                         vv = f"version {pkg.__version__}"
                     else:
-                        vv = f"(no version info)"
+                        vv = "(no version info)"
                     print(f"{pkg_name:20}: found, {vv:25}")
                 except ImportError:
                     print(f"{pkg_name}: NOT FOUND!")
+
+
+# https://matplotlib.org/stable/gallery/color/color_cycle_default.html
+prop_cycle = plt.rcParams["axes.prop_cycle"]
+colors_10 = prop_cycle.by_key()["color"]
+assert len(colors_10) == 10
+
+
+def get_label_colors(y, cmap=colormaps.get_cmap("jet")):
+    n_unique_labels = len(np.unique(y))
+    if n_unique_labels == 10:
+        colors = colors_10
+    else:
+        rng = np.random.default_rng(seed=42)
+        colors = [cmap(rng.random()) for _ in range(n_unique_labels)]
+    return [colors[y_i] for y_i in y]

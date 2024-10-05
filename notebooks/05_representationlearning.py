@@ -13,508 +13,552 @@
 #     name: python3
 # ---
 
+# %% [markdown]
+"""
+# Representation Learning
+
+Effective Machine Learning is often about finding a good and flexible model
+that can represent high-dimensional data well. The autoencoder can be such an
+architecture.
+
+Here we first investigate the autoencoder's learned latent space. Then we train
+a classification CNN, which has a completely different task. Instead of
+learning to compress (and denoise) the data, it must classify the inputs by
+label. We will look at its latent representations of the data. Does
+it learn to pay attention to the same data characteristics to solve its task?
+"""
+
+
 # %%
+# First we need to repeat some code from the previous notebook. We could of
+# course put everything into modules and import it, which would be the correct
+# way to do it in production, but here we don't, for didactic purposes.
+
+from collections import defaultdict
 
 import numpy as np
 import torch
+from torch.utils.data import DataLoader
+from matplotlib import gridspec, pyplot as plt
 
-from utils import count_params
+from mnist1d.data import get_dataset_args, make_dataset
+
+from utils import model_summary, MNIST1D, colors_10, get_label_colors
 
 np.random.seed(13)
 torch.random.manual_seed(12)
 
 # %%
-from mnist1d.data import get_dataset_args, make_dataset
-
 # disable noise for a clear reference
 clean_config = get_dataset_args()
 clean_config.iid_noise_scale = 0
 clean_config.corr_noise_scale = 0
 clean_config.seed = 40
-clean = make_dataset(clean_config)
-cleanX, cleany = clean["x"], clean["y"]
+clean_mnist1d = make_dataset(clean_config)
+X_clean, y_clean = clean_mnist1d["x"], clean_mnist1d["y"]
+
+# use iid noise only for the time being
+noisy_config = get_dataset_args()
+noisy_config.iid_noise_scale = 0.05
+noisy_config.corr_noise_scale = 0
+noisy_config.seed = 40
+noisy_mnist1d = make_dataset(noisy_config)
+X_noisy, y_noisy = noisy_mnist1d["x"], noisy_mnist1d["y"]
+
+# We use the same random seed for clean_config and noisy_config, so this must
+# be the same.
+assert (y_clean == y_noisy).all()
+
+# Convert numpy -> torch for usage in next cells. For training, we will build a
+# DataLoader later.
+X_noisy = torch.from_numpy(X_noisy).float()
+X_test = X_noisy[:8, ...]
+
+
+# %%
+# This function is much simpler now, since we train on clean inputs and
+# targets.
+#
+def get_dataloaders(batch_size=64):
+    dataset_train_clean = MNIST1D(mnist1d_args=clean_config, train=True)
+    dataset_test_clean = MNIST1D(mnist1d_args=clean_config, train=False)
+    assert len(dataset_train_clean) == 3600
+    assert len(dataset_test_clean) == 400
+
+    train_dataloader = DataLoader(
+        dataset_train_clean, batch_size=batch_size, shuffle=True
+    )
+    test_dataloader = DataLoader(
+        dataset_test_clean, batch_size=batch_size, shuffle=False
+    )
+
+    return train_dataloader, test_dataloader
+
+
+X_latent_h = np.load("X_latent_h.npy")
+y_latent_h = np.load("y_latent_h.npy")
+
 
 # %% [markdown]
 """
-Now, let's plot the data which we would like to use.
+## Projection of the autoencoder latent `h` in 2D
+
+In the autoencoder lesson, we plotted the latent `h` and found it hard to find
+some structure by visual inspection.
+
+Let's now project the latent representations `h` of dimension 10 into a 2D space
+and see if we can find some structure there. For this we use [t-distributed
+Stochastic Neighbor Embedding
+(t-SNE)](https://scikit-learn.org/stable/modules/manifold.html#t-distributed-stochastic-neighbor-embedding-t-sne)
+as well as Isomap as one additional method of the many that `scikit-learn`
+offers.
 """
 
 # %%
-import matplotlib.pyplot as plt
+from sklearn.manifold import TSNE, Isomap
+from sklearn.preprocessing import StandardScaler
 
-f, ax = plt.subplots(2, 5, figsize=(14, 5), sharex=True, sharey=True)
+vis_cache = defaultdict(dict)
 
-for sample in range(10):
-    col = sample % 5
-    row = sample // 5
-    ax[row, col].plot(cleanX[sample, ...], label="clean", color="green")
-    label = cleany[sample]
-    ax[row, col].set_title(f"label {label}")
-    if row == 1:
-        ax[row, col].set_xlabel(f"samples / a.u.")
-    if col == 0:
-        ax[row, col].set_ylabel(f"intensity / a.u.")
-    if col == 4 and row == 0:
-        ax[row, col].legend()
+emb_methods = dict(
+    tsne=TSNE(n_components=2, random_state=23),
+    isomap=Isomap(n_components=2),
+)
 
-f.suptitle("MNIST1D examples")
-f.savefig("mnist1d_cleanonly_first10.svg")
+ncols = 1
+nrows = len(emb_methods)
+fig, axs = plt.subplots(
+    nrows=nrows, ncols=ncols, figsize=(5 * ncols, 5 * nrows)
+)
+label_colors = get_label_colors(y_latent_h)
+X_scaled = StandardScaler().fit_transform(X_latent_h)
+for (emb_name, emb), ax in zip(emb_methods.items(), np.atleast_1d(axs)):
+    print(f"processing: {emb_name}")
+    X_emb2d = emb.fit_transform(X_scaled)
+    ax.scatter(X_emb2d[:, 0], X_emb2d[:, 1], c=label_colors)
+    ax.set_title(f"MNIST-1D latent h: {emb_name}")
+    vis_cache["ae_latent_h"][emb_name] = dict(X_emb2d=X_emb2d, y=y_latent_h)
+
+
+fig.savefig("mnist1d_ae_latent_embeddings_2d.svg")
+
+# %% [markdown]
+"""
+If your autoencoder model is big enough and training is converged, you should
+see now that overall, there is no clear clustering into groups **by label**
+(the different colors) for all classes. Instead, we find some classes which are
+represented by a number of smaller "sub-clusters" which share the same label
+(esp. in the t-SNE plot). Other classes don't show sub-clusters, but are
+instead scattered all over the place.
+
+In summary, there is definitely structure in the learned latent `h` representations
+of the data, just not one that can be easily mapped to one class label per cluster.
+So why is that? We will investigate this now in more detail.
+
+Note: Dimensionality reduction is a tricky business which by construction is a
+process where information is lost, while trying to retain the most prominent
+parts. Also, each method has hyper-parameters that need to be explored before
+over-interpreting any method's results. Still, if the model had learned to
+produce very distinct embeddings `h` per class label, we would also expect to
+see this even in a 2D space.
+
+To gain more insights, we now compute additional t-SNE embeddings: We
+project the MNIST-1D *inputs* of dimension 40 into a 2D space.
+"""
 
 # %%
-class MyEncoder(torch.nn.Module):
-    def __init__(self, nlayers: int = 3, nchannels=16):
+cases = [
+    dict(
+        dset_name="MNIST-1D AE latent h, class labels",
+        X=vis_cache["ae_latent_h"]["tsne"]["X_emb2d"],
+        y=vis_cache["ae_latent_h"]["tsne"]["y"],
+        compute=False,
+    ),
+    dict(
+        dset_name="MNIST-1D input (clean), class labels",
+        X=X_clean,
+        y=y_clean,
+        compute=True,
+    ),
+    dict(
+        dset_name="MNIST-1D input (noisy), class labels",
+        X=X_noisy,
+        y=y_noisy,
+        compute=True,
+    ),
+]
+
+ncols = len(cases)
+nrows = 1
+fig, axs = plt.subplots(
+    nrows=nrows, ncols=ncols, figsize=(6 * ncols, 5 * nrows)
+)
+
+for dct, ax in zip(cases, np.atleast_1d(axs)):
+    dset_name = dct["dset_name"]
+    X = dct["X"]
+    y = dct["y"]
+    compute = dct["compute"]
+    print(f"processing: {dset_name}")
+    if compute:
+        X_emb2d = TSNE(n_components=2, random_state=23).fit_transform(
+            StandardScaler().fit_transform(X)
+        )
+    else:
+        X_emb2d = X
+    ax.scatter(X_emb2d[:, 0], X_emb2d[:, 1], c=get_label_colors(y))
+    n_unique_labels = len(np.unique(y))
+    ax.set_title(f"{dset_name} \n#labels = {n_unique_labels}")
+
+fig.savefig("mnist1d_embeddings_2d_compare.svg")
+
+
+# %% [markdown]
+"""
+On the left we have the same 2D plot as before, a projection of the learned
+latent `h` into 2D space. The middle and right plots show the t-SNE embedding of the
+40-dimensional inputs. We can make the following observations:
+
+* The input embeddings (middle and right) look very similar, so the noise we
+  added to the clean data is such that more than enough of the clean data
+  characteristics are retained, which makes learning a denoising model
+  possible in the first place.
+* The embedding of the latent `h` and that of the inputs are similar in terms of which
+  classes cluster (or not). Note that we embed with t-SNE 10 dimensional and 40
+  dimensional data and hence the produced 2D *shapes* are not expected to be
+  the same, as those have no meaning in t-SNE. Only the spatial distribution
+  of the class colors is what matters.
+* Recall that the inputs and the
+  latent `h` look *very* different, yet their 2D representations are remarkably
+  similar. This shows that the latent codes `h` indeed en**code** the
+  characteristics of the data, even though their numbers (e.g. plotted in 1D)
+  appear meaningless to us. Be reminded that, just as with a standard
+  compression method (like xz, zip, lz4, ...) the compressed data looks nothing
+  like the input. You need the compressed version *plus* the compression
+  (encoder) and decompression (decoder) software. In our case, the autoencoder
+  with its learned weights is the "software", applicable to this dataset.
+* The left plot looks less fragmented (less sub-clusters) than even the
+  embedding of the clean data (middle). This suggests that the latent `h` carry
+  only essential information regarding the data characteristics, i.e. the
+  autoencoder managed to remove data features that are not important.
+
+But the question remains: Why don't we see one single cluster per class label?
+Two hypotheses come to mind:
+
+* The autoencoder was *not* trained to classify inputs by label, but to
+  reconstruct and denoise them. Hence the model may learn to produce latent codes
+  that help in doing that, and as a result may focus on other structural elements
+  of the data than those which a classification model would use to discriminate
+  between classes.
+
+* Given the similarity of the input and latent `h`'s 2D embeddings, maybe the
+  dataset itself is hard, in the sense that some classes can be separated by
+  input data features (the ones that show up in sub-clusters), while other
+  inputs with different class labels have in fact very similar data
+  characteristics.
+"""
+
+
+# %% [markdown]
+"""
+## Classifying MNIST-1D
+
+Similar to [MNIST](https://yann.lecun.com/exdb/mnist/), MNIST-1D can be used
+for the task of classification where, given an input sequence, we
+want to predict the class label `[0,1,...,9]` that the 1D sequence belongs to.
+Classification has been one of the driving forces behind progress in machine
+learning, with [AlexNet](https://dl.acm.org/doi/10.1145/3065386) in 2012
+being one of the initial milestones of modern deep learning.
+
+We now build a CNN classification model, the architecture of which is similar
+to our encoder from before. The main difference is that after the convolutional
+layers which do "feature learning" (learn what to pay attention to in the
+input), we have a small MLP that solves the classification task. We will use
+the hidden layer's activations as latent representations.
+"""
+
+# %%
+class MyCNN(torch.nn.Module):
+    def __init__(
+        self,
+        channels=[8, 16, 32],
+        input_ndim=40,
+        output_ndim=10,
+        latent_ndim=64,
+    ):
         super().__init__()
         self.layers = torch.nn.Sequential()
 
-        for i in range(nlayers - 1):
-            inchannels = 1 if i == 0 else nchannels
-            # convolve and shrink input width by 2x
+        channels = [1] + channels
+        for ii, (old_n_channels, new_n_channels) in enumerate(
+            zip(channels[:-1], channels[1:])
+        ):
             self.layers.append(
                 torch.nn.Conv1d(
-                    in_channels=inchannels,
-                    out_channels=nchannels,
-                    kernel_size=5,
-                    padding=2,
+                    in_channels=old_n_channels,
+                    out_channels=new_n_channels,
+                    kernel_size=3,
+                    padding=1,
+                    padding_mode="replicate",
                     stride=2,
                 )
             )
+            if ii < len(channels) - 2:
+                self.layers.append(
+                    torch.nn.Conv1d(
+                        in_channels=new_n_channels,
+                        out_channels=new_n_channels,
+                        kernel_size=3,
+                        padding=1,
+                        padding_mode="replicate",
+                        stride=1,
+                    )
+                )
             self.layers.append(torch.nn.ReLU())
 
-        # convolve and keep input width
-        self.layers.append(
-            torch.nn.Conv1d(
-                in_channels=nchannels, out_channels=1, kernel_size=3, padding=1
-            )
-        )
-
-        # flatten and add a linear tail
         self.layers.append(torch.nn.Flatten())
 
-    def forward(self, x):
-        # convolutions in torch require an explicit channel dimension to be
-        # present in the data in other words:
-        # inputs of size (nbatch, 40) do not work,
-        # inputs of size (nbatch, 1, 40) do work
-        if len(x.shape) == 2:
-            x = torch.unsqueeze(x, dim=1)
-        return self.layers(x)
+        dummy_X = torch.empty(1, 1, input_ndim, device="meta")
+        dummy_out = self.layers(dummy_X)
+        in_features = dummy_out.shape[-1]
 
-
-# %%
-class MyDecoder(torch.nn.Module):
-    def __init__(self, nlayers: int = 3, nchannels=16):
-        super().__init__()
-        self.layers = torch.nn.Sequential()
-
-        for i in range(nlayers - 1):
-            inchannels = 1 if i == 0 else nchannels
-            # deconvolve/Upsample and grow input width by 2x
-            self.layers.append(
-                torch.nn.ConvTranspose1d(
-                    in_channels=inchannels,
-                    out_channels=nchannels,
-                    kernel_size=5,
-                    padding=2,
-                    stride=2,
-                    output_padding=1,
-                )
-            )
-            self.layers.append(torch.nn.ReLU())
-
-        # convolve and keep input width
         self.layers.append(
-            torch.nn.Conv1d(
-                in_channels=nchannels, out_channels=1, kernel_size=3, padding=1
+            torch.nn.Linear(
+                in_features=in_features,
+                out_features=2 * latent_ndim,
+            )
+        )
+
+        self.layers.append(torch.nn.ReLU())
+
+        self.layers.append(
+            torch.nn.Linear(
+                in_features=2 * latent_ndim,
+                out_features=latent_ndim,
+            )
+        )
+
+        self.final_layers = torch.nn.Sequential()
+
+        self.final_layers.append(torch.nn.ReLU())
+
+        self.final_layers.append(
+            torch.nn.Linear(
+                in_features=latent_ndim,
+                out_features=output_ndim,
             )
         )
 
     def forward(self, x):
-        # convolutions in torch require an explicit channel dimension to be
-        # present in the data in other words:
-        # inputs of size (nbatch, 40) do not work,
-        # inputs of size (nbatch, 1, 40) do work
+        # Convolutions in torch require an explicit channel dimension to be
+        # present in the data, in other words:
+        #   inputs of size (batch_size, 40) do not work,
+        #   inputs of size (batch_size, 1, 40) do work
         if len(x.shape) == 2:
-            x = torch.unsqueeze(x, dim=1)
+            hidden_out = self.layers(torch.unsqueeze(x, dim=1))
+        else:
+            hidden_out = self.layers(x)
+        return self.final_layers(hidden_out), hidden_out
 
-        return self.layers(x)
-
-
-# %%
-class MyAutoencoder(torch.nn.Module):
-    def __init__(self, nlayers: int = 3, nchannels=16):
-        super().__init__()
-
-        self.enc = MyEncoder(nlayers, nchannels)
-        self.dec = MyDecoder(nlayers, nchannels)
-
-    def forward(self, x):
-        # construct the latents
-        h = self.enc(x)
-
-        # perform reconstruction
-        x_prime = self.dec(h)
-
-        return x_prime
-
-
-# %% [markdown]
-"""
-## Training an autoencoder
-
-Training the autoencoder works in the same line as training for regression from the last episode.
-
-1. create the dataset
-2. create the loaders
-3. setup the model
-4. setup the optimizer
-5. loop through epochs
-"""
-
-# %%
-# create dataset and loaders
-from torch.utils.data import DataLoader
-from utils import MNIST1D
-
-training_data = MNIST1D(mnist1d_args=clean_config)
-test_data = MNIST1D(mnist1d_args=clean_config, train=False)
-
-nsamples = len(training_data) + len(test_data)
-assert nsamples == 4000, f"number of samples for MNIST1D is not 4000 but {nsamples}"
-
-train_dataloader = DataLoader(training_data, batch_size=64, shuffle=True)
-test_dataloader = DataLoader(test_data, batch_size=64, shuffle=False)
-
-# %%
-# setup the model
-autoemodel = MyAutoencoder()
-learning_rate = 1e-3
-max_epochs = 30
-log_every = 5
-
-optimizer = torch.optim.AdamW(autoemodel.parameters(), lr=learning_rate)
-criterion = torch.nn.MSELoss()  # our loss function
-
-
-# %%
-# write the training loop
-def train_autoencoder(
-    model, opt, crit, train_dataloader, test_dataloader, max_epochs, log_every=5
-):
-    results = {"train_losses": [], "test_losses": []}
-    ntrainsteps = len(train_dataloader)
-    nteststeps = len(test_dataloader)
-    train_loss, test_loss = torch.zeros((ntrainsteps,)), torch.zeros((nteststeps,))
-
-    for epoch in range(max_epochs):
-        # perform training for one epoch
-        for idx, (X, _) in enumerate(train_dataloader):
-            # forward pass
-            X_prime = model(X)
-
-            # compute loss
-            loss = crit(X_prime, X)
-
-            # compute gradient
-            loss.backward()
-
-            # apply weight update rule
-            opt.step()
-
-            # set gradients to 0
-            opt.zero_grad()
-
-            train_loss[idx] = loss.item()
-
-        for idx, (X_test, _) in enumerate(test_dataloader):
-            X_prime_test = model(X_test)
-            loss_ = crit(X_prime_test, X_test)
-            test_loss[idx] = loss_.item()
-
-        results["train_losses"].append(train_loss.mean())
-        results["test_losses"].append(test_loss.mean())
-
-        if epoch % log_every == 0 or (epoch + 1) == max_epochs:
-            print(
-                f"{epoch+1:02.0f}/{max_epochs} :: training loss {train_loss.mean():03.4f}; test loss {test_loss.mean():03.4f}"
-            )
-    return results
-
-# %%
-# run the training
-print(f"Initialized autoencoder with {count_params(autoemodel)} parameters")
-results = train_autoencoder(
-    autoemodel,
-    optimizer,
-    criterion,
-    train_dataloader,
-    test_dataloader,
-    max_epochs,
-    log_every,
-)
-# %%
-# visualize the training progress
-f, ax = plt.subplots(1, 2, figsize=(10, 4))
-
-ax[0].plot(results["train_losses"], color="b", label="train")
-ax[0].plot(results["test_losses"], color="orange", label="test")
-ax[0].set_xlabel("epoch")
-ax[0].set_ylabel("avergage MSE Loss / a.u.")
-ax[0].set_yscale("log")
-ax[0].set_title("Loss")
-ax[0].legend()
-
-# choose an index into the test set of your liking
-index = 0
-# perform prediction again
-last_x, last_y = test_data[index]
-last_x_prime = autoemodel(last_x.unsqueeze(0))
-
-# prepare tensors for plotting
-last_in = last_x.detach().squeeze().numpy()
-last_out = last_x_prime.detach().squeeze().numpy()
-
-ax[1].plot(last_in, color="b", label="test input")
-ax[1].plot(last_out, color="orange", label="test prediction")
-ax[1].set_xlabel("samples / a.u.")
-ax[1].set_ylabel("intensity / a.u.")
-ax[1].set_title(f"Conv-based Autoencoder, label = {last_y.detach().item()}")
-ax[1].legend()
-
-f.savefig("representationlearning-autoencoder-loss.svg")
-
-# %% [markdown]
-"""
-# Representation Learning
-
-Effective Machine Learning is often about finding a good and flexible model that can represent high-dimensional data well. The autoencoder can be such an architecture depending on its design and the input data. In practice, the community has started to use the latent representation for all kinds of applications. But you should be aware, that the created representations can be task specific.
-
-## Classifying MNIST1D
-
-Similar to [MNIST](https://yann.lecun.com/exdb/mnist/), `mnist1d` can be used for the task of classification. In other words, given an input sequence, we only want to predict the class label `[0,1,...,9]` that the image belongs to. Classification has been one of the driving forces behind progress in machine learning since [ImageNet 2012]() - for better or worse. In science, classification is used rarely.
-"""
-
-# %%
-# taken from https://github.com/greydanus/mnist1d/blob/dc46206f1e1ad7249c96e3042efca0955a6b5d35/notebooks/models.py#L36C1-L54C65
-class ConvBase(torch.nn.Module):
-    def __init__(self, output_size, channels=25, linear_in=10):
-        super(ConvBase, self).__init__()
-        self.conv1 = torch.nn.Conv1d(1, channels, 5, stride=2, padding=2)
-        self.conv2 = torch.nn.Conv1d(channels, channels, 3, stride=2, padding=1)
-        self.conv3 = torch.nn.Conv1d(channels, channels, 3, stride=1, padding=1)
-        self.linear = torch.nn.Linear(
-            linear_in * channels, output_size
-        )  # flattened channels -> 10 (assumes input has dim 50)
-
-    def forward(self, x, verbose=False):  # the print statements are for debugging
-        x = x.view(-1, 1, x.shape[-1])
-        h1 = self.conv1(x).relu()
-        h2 = self.conv2(h1).relu()
-        h3 = self.conv3(h2).relu()
-        h3 = h3.view(h3.shape[0], -1)  # flatten the conv features
-        return self.linear(h3)  # a linear classifier goes on top
-
-# %% [markdown]
-r"""
-**Exercise 05.1**
-
-We looked at classification in exercise 02. Pick up the notebook from there, compare the code of the `MyCNN` class with `ConvBase` above. What differences do you spot?
-"""
-
-# %% [markdown] jupyter={"source_hidden": true}
-r"""
-**Solution 05.1**
-
-Convolution setup:
-- MyCNN: uses convolutions with kernel sizes 5,5,3
-- ConvBase: uses convolutions with kernel sizes 5,3,3
-
-Tensor Views:
-- MyCNN: uses a flatten layer
-- ConvBase: uses a reshaped view of h3, views are powerful concepts in pytorch with which you can reshape a tensor without touching its memory
-
-Outputs of the forward pass:
-- MyCNN: uses a Softmax after the linear layer
-- ConvBase: uses only a linear layer as the output
-
-Note, that for the latter aspect, each model returns quite content for the tensors. MyCNN does normalize the logits according to the Softmax, whereas ConvBase does not! It's fun to take away, that albeit Softmax imposes a probabilistic view on the model output, training can live without it sometimes.
-"""
 
 # %%
 from sklearn.metrics import accuracy_score as accuracy
 
 
 def train_classifier(
-    model, opt, crit, train_dataloader, test_dataloader, max_epochs, log_every=5
+    model,
+    optimizer,
+    loss_func,
+    train_dataloader,
+    test_dataloader,
+    max_epochs,
+    log_every=5,
+    use_gpu=False,
+    logs=defaultdict(list),
 ):
-    results = {
-        "train_losses": [],
-        "test_losses": [],
-        "train_accuracy": [],
-        "test_accuracy": [],
-    }
-    ntrainsteps = len(train_dataloader)
-    nteststeps = len(test_dataloader)
-    train_loss, test_loss = torch.zeros((ntrainsteps,)), torch.zeros((nteststeps,))
-    train_acc, test_acc = np.zeros((ntrainsteps,)), np.zeros((nteststeps,))
+    if use_gpu and torch.cuda.is_available():
+        device = torch.device("cuda:0")
+    else:
+        device = torch.device("cpu")
+
+    model = model.to(device)
 
     for epoch in range(max_epochs):
-        # perform training for one epoch
-        for idx, (X, y) in enumerate(train_dataloader):
-            # forward pass
-            y_hat = model(X)
+        train_loss_epoch_sum = 0.0
+        test_loss_epoch_sum = 0.0
+        train_acc_epoch_sum = 0.0
+        test_acc_epoch_sum = 0.0
 
-            # compute loss
-            loss = crit(y_hat, y)
+        model.train()
+        for X_train, y_train in train_dataloader:
+            # forward pass, discard hidden_out here
+            y_pred_train_logits, _ = model(X_train.to(device))
 
-            # compute gradient
-            loss.backward()
+            train_loss = loss_func(y_pred_train_logits, y_train.to(device))
+            train_loss.backward()
+            optimizer.step()
+            optimizer.zero_grad()
 
-            # apply weight update rule
-            opt.step()
-
-            # set gradients to 0
-            opt.zero_grad()
-
-            train_loss[idx] = loss.item()
-            train_acc[idx] = accuracy(
-                y.detach().cpu().numpy(), y_hat.argmax(-1).cpu().numpy()
+            train_loss_epoch_sum += train_loss.item()
+            train_acc_epoch_sum += accuracy(
+                y_train, y_pred_train_logits.argmax(-1).cpu().numpy()
             )
 
-        for idx, (X_test, y_test) in enumerate(test_dataloader):
-            y_hat_test = model(X_test)
-            loss_ = crit(y_hat_test, y_test)
-            test_loss[idx] = loss_.item()
-            test_acc = accuracy(
-                y_test.detach().cpu().numpy(), y_hat_test.argmax(-1).cpu().numpy()
+        model.eval()
+        for X_test, y_test in test_dataloader:
+            y_pred_test_logits, _ = model(X_test.to(device))
+            test_loss = loss_func(y_pred_test_logits, y_test.to(device))
+            test_loss_epoch_sum += test_loss.item()
+            test_acc_epoch_sum += accuracy(
+                y_test, y_pred_test_logits.argmax(-1).cpu().numpy()
             )
 
-        results["train_losses"].append(train_loss.mean())
-        results["test_losses"].append(test_loss.mean())
-        results["train_accuracy"].append(np.mean(train_acc))
-        results["test_accuracy"].append(np.mean(test_acc))
+        logs["train_loss"].append(train_loss_epoch_sum / len(train_dataloader))
+        logs["test_loss"].append(test_loss_epoch_sum / len(test_dataloader))
+        logs["train_acc"].append(train_acc_epoch_sum / len(train_dataloader))
+        logs["test_acc"].append(test_acc_epoch_sum / len(test_dataloader))
 
-        if epoch % log_every == 0 or (epoch + 1) == max_epochs:
+        if (epoch + 1) % log_every == 0 or (epoch + 1) == max_epochs:
             print(
-                f"{epoch+1:02.0f}/{max_epochs} :: training loss {train_loss.mean():03.4f}; test loss {test_loss.mean():03.4f} "
-                f"training acc {np.mean(train_acc):01.4f}; test acc {np.mean(test_acc):01.4f}"
+                f"{epoch+1:02.0f}/{max_epochs} :: training loss {train_loss.mean():03.5f}; test loss {test_loss.mean():03.5f}"
             )
-    return results
+    return logs
 
 
 # %%
-# we reuse the dataloaders from above
-classmodel = ConvBase(10, channels=32)
-print(f"Initialized ConvBase model with {count_params(classmodel)} parameters")
-classopt = torch.optim.AdamW(classmodel.parameters(), lr=1e-3)
-classcrit = torch.nn.CrossEntropyLoss()
+batch_size = 64
+train_dataloader, test_dataloader = get_dataloaders(batch_size=batch_size)
 
-# train the classifier
-classifier_results = train_classifier(
-    classmodel, classopt, classcrit, train_dataloader, test_dataloader, max_epochs=30
+
+# %%
+# hyper-parameters that influence model and training
+learning_rate = 5e-4
+latent_ndim = 64
+
+max_epochs = 50
+channels = [32, 64, 128]
+
+# Regularization parameter to prevent overfitting.
+weight_decay = 0.1
+
+# Defined above already. We skip this here since this is a bit slow. If you
+# want to change batch_size (yet another hyper-parameter!) do it here or in the
+# cell above where we called get_dataloaders().
+##batch_size = 64
+##train_dataloader, test_dataloader = get_dataloaders(
+##    batch_size=batch_size
+##)
+
+model = MyCNN(channels=channels, latent_ndim=latent_ndim)
+optimizer = torch.optim.AdamW(
+    model.parameters(), lr=learning_rate, weight_decay=weight_decay
+)
+loss_func = torch.nn.CrossEntropyLoss()
+
+# Initialize empty loss logs once.
+logs = defaultdict(list)
+
+print(
+    model_summary(model, input_size=next(iter(train_dataloader))[0][0].shape)
 )
 
-# %%
-f, ax = plt.subplots(1, 2, figsize=(10, 4))
+# %% [markdown]
+"""
+Run training.
 
-ax[0].plot(classifier_results["train_losses"], color="b", label="train")
-ax[0].plot(classifier_results["test_losses"], color="orange", label="test")
+Note that if you re-execute this cell with*out* reinstantiating `model` above,
+you will continue training with the so-far best model as start point. Also, we
+append loss histories to `logs`.
+"""
+
+# %%
+logs = train_classifier(
+    model=model,
+    optimizer=optimizer,
+    loss_func=loss_func,
+    train_dataloader=train_dataloader,
+    test_dataloader=test_dataloader,
+    max_epochs=max_epochs,
+    log_every=5,
+    logs=logs,
+)
+
+
+# %%
+fig, ax = plt.subplots(1, 2, figsize=(10, 4))
+
+ax[0].plot(logs["train_loss"], color="b", label="train")
+ax[0].plot(logs["test_loss"], color="orange", label="test")
 ax[0].set_xlabel("epoch")
 ax[0].set_ylabel("avergage MSE Loss / a.u.")
 ax[0].set_yscale("log")
 ax[0].set_title("Loss")
 ax[0].legend()
 
-ax[1].plot(classifier_results["train_accuracy"], color="b", label="train")
-ax[1].plot(classifier_results["test_accuracy"], color="orange", label="test")
+ax[1].plot(logs["train_acc"], color="b", label="train")
+ax[1].plot(logs["test_acc"], color="orange", label="test")
 ax[1].set_xlabel("epoch")
 ax[1].set_ylabel("avergage Accuracy / a.u.")
 ax[1].set_title("Accuracy")
 ax[1].legend()
 
-f.savefig("representationlearning-classifier-loss.svg")
+fig.savefig("mnist1d_cnn_loss_acc.svg")
+
 
 # %% [markdown]
-r"""
-We have trained two networks:
-- an autoencoder on a reconstruction task
-- a classifier on a classification task
-
-In practice, users are often interested in using the embeddings of either. The question, we want to answer now: are the embeddings the same?
-
-At this point, we have to honor the fact, that we are dealing with a 10-dim space in either case:
-- the latent space of our autoencoder has dim=10
-- the output of our classifier (also called logits) is also dim=10
-
-To take a more closer look, we need to explore (and compare) samples from a 10-dimensional space. Quite tricky with a 2D laptop screen.
-Thus, we have to choose a good visualisation method (or any other method to check) how similar, the embeddings actually are.
-
-*Exercise 05.2*
-
-Perform the study above by fitting a 2-component PCA from `sklearn` on the embedding spaces of the test set! Fix the errors in the visible code snippet first. Then move on to visualize the first 2 components of the PCA.
-
-Bonus: If you feel like it, feel free to experiment with other techniques than PCA like [tSNE](https://scikit-learn.org/stable/modules/generated/sklearn.manifold.TSNE.html).
+"""
+Let's create a 2D projection of the CNN's latent representation.
 """
 
 # %%
-# disable autodiff computations
-classmodel.eval()
-autoemodel.eval()
+from sklearn.manifold import TSNE, Isomap
+from sklearn.preprocessing import StandardScaler
 
-alldata_loader = DataLoader(test_data, batch_size=len(test_data), shuffle=False)
-alltest_x, alltest_y = next(iter(alldata_loader))
+with torch.no_grad():
+    X_latent_cnn = model(torch.from_numpy(X_clean).float())[1]
+y_latent_cnn = y_clean
 
-allembed_class = ...
-allembed_autoe = ...
+cases = [
+    dict(
+        dset_name="MNIST-1D AE latent h, class labels",
+        X=vis_cache["ae_latent_h"]["tsne"]["X_emb2d"],
+        y=vis_cache["ae_latent_h"]["tsne"]["y"],
+        compute=False,
+    ),
+    dict(
+        dset_name="MNIST-1D CNN latent, class labels",
+        X=X_latent_cnn,
+        y=y_latent_cnn,
+        compute=True,
+    ),
+]
 
-assert ...
-
-
-# %% jupyter={"source_hidden": true}
-classmodel.eval()
-autoemodel.eval()
-
-alldata_loader = DataLoader(test_data, batch_size=len(test_data), shuffle=False)
-alltest_x, alltest_y = next(iter(alldata_loader))
-
-allembed_class = classmodel(alltest_x)
-allembed_autoe = autoemodel.enc(alltest_x)
-
-assert allembed_autoe.shape == allembed_class.shape
-
-
-# %% jupyter={"source_hidden": true}
-import matplotlib.pyplot as plt
-
-from sklearn import datasets
-from sklearn.decomposition import PCA
-
-pca = PCA(n_components=2)
-X_class = pca.fit(allembed_class.detach().numpy()).transform(
-    allembed_class.detach().numpy()
-)
-X_autoe = pca.fit(allembed_autoe.detach().numpy()).transform(
-    allembed_autoe.detach().numpy()
+ncols = len(cases)
+nrows = 1
+fig, axs = plt.subplots(
+    nrows=nrows, ncols=ncols, figsize=(6 * ncols, 5 * nrows)
 )
 
-assert X_class.shape == X_autoe.shape
+for dct, ax in zip(cases, np.atleast_1d(axs)):
+    dset_name = dct["dset_name"]
+    X = dct["X"]
+    y = dct["y"]
+    compute = dct["compute"]
+    print(f"processing: {dset_name}")
+    if compute:
+        X_emb2d = TSNE(n_components=2, random_state=23).fit_transform(
+            StandardScaler().fit_transform(X)
+        )
+    else:
+        X_emb2d = X
+    ax.scatter(X_emb2d[:, 0], X_emb2d[:, 1], c=get_label_colors(y))
+    n_unique_labels = len(np.unique(y))
+    ax.set_title(f"{dset_name} \n#labels = {n_unique_labels}")
 
-fig, ax = plt.subplots(2, 2, figsize=(10, 10))
-lw = 2
+fig.savefig("mnist1d_cnn_latent_embeddings_2d.svg")
 
-ax[0,0].scatter(X_class[..., 0], X_class[..., 1])
-ax[0,0].set_title("PCA of classifier embeddings")
-
-ax[0,1].scatter(X_autoe[..., 0], X_autoe[..., 1])
-ax[0,1].set_title("PCA of autoencoder embeddings")
-
-ax[1,0].scatter(X_class[..., 0], X_class[..., 1], c = alltest_y.detach().numpy())
-ax[1,0].set_title("PCA of classifier embeddings")
-
-ax[1,1].scatter(X_autoe[..., 0], X_autoe[..., 1], c = alltest_y.detach().numpy())
-ax[1,1].set_title("PCA of autoencoder embeddings")
-
-fig.savefig("representationlearning-pca-comparison.svg")
 # %% [markdown]
-r"""
-From the above we learn, that the geometries which each of the two architectures populate in the embedding space tend to be quite different. Hence, the effect of this must be taken into account in practice. Moreover, we also see how clearly different either model differentiates the dataset.
+"""
+OK, well that's interesting! Now, which of the two hypotheses from above do you
+think is correct? Let's discuss!
 """
