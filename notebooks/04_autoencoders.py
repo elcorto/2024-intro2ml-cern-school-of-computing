@@ -673,10 +673,10 @@ def train_autoencoder(
             )
             test_loss_epoch_sum += test_loss.item()
 
-        logs["train_losses"].append(
+        logs["train_loss"].append(
             train_loss_epoch_sum / len(train_dataloader)
         )
-        logs["test_losses"].append(test_loss_epoch_sum / len(test_dataloader))
+        logs["test_loss"].append(test_loss_epoch_sum / len(test_dataloader))
 
         if (epoch + 1) % log_every == 0 or (epoch + 1) == max_epochs:
             print(
@@ -766,8 +766,8 @@ model.eval()
 
 
 fig, ax = plt.subplots()
-ax.plot(logs["train_losses"], color="b", label="train")
-ax.plot(logs["test_losses"], color="orange", label="test")
+ax.plot(logs["train_loss"], color="b", label="train")
+ax.plot(logs["test_loss"], color="orange", label="test")
 ax.set_xlabel("epoch")
 ax.set_ylabel("average MSE Loss / a.u.")
 ax.set_yscale("log")
