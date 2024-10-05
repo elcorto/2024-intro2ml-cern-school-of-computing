@@ -865,10 +865,6 @@ half the dimension with every conv step using strided convolutions: 40 - 20 -
 a multiple of 2 and (b) non-zero. To make the model deeper, we'd need to drop
 strided convolutions and use another way to shrink the dimension, e.g. by
 combining normal `stride=1` convolutions with max or average pooling layers.
-
-**Once you have a model that is able to faithfully denoise the input, then
-proceed to the next sections. Without a good enough model, the following lesson
-may lead to wrong conclusions.**
 """
 
 # %% [markdown]
@@ -959,201 +955,18 @@ Each color represents one of the 10 class labels.
 We find that all latent `h` vectors look very similar, so it is hard to
 visually find clusters of embeddings that belong to a certain label.
 
-Let's project the latent representations `h` of dimension 10 into a 2D space
-and see if we can find some structure there. For this we use [t-distributed
-Stochastic Neighbor Embedding
-(t-SNE)](https://scikit-learn.org/stable/modules/manifold.html#t-distributed-stochastic-neighbor-embedding-t-sne)
-as well as Isomap as one additional method of the many that `scikit-learn`
-offers.
+In the next lesson we will tackle that with better tooling. The last thing we
+do is save some data that we load in the next notebook. That way we don't have
+to re-train the autoencoder there.
+
+**Make sure you have trained a model that is able to faithfully denoise the
+input. Without a good enough model and hence latent `h`, the following lesson
+may lead to wrong conclusions.**
 """
 
 # %%
-from sklearn.manifold import TSNE, Isomap
-from sklearn.preprocessing import StandardScaler
-
-emb_methods = dict(
-    tsne=TSNE(n_components=2, random_state=23),
-    isomap=Isomap(n_components=2),
-)
-
-ncols = 1
-nrows = len(emb_methods)
-fig, axs = plt.subplots(
-    nrows=nrows, ncols=ncols, figsize=(5 * ncols, 5 * nrows)
-)
-label_colors = get_label_colors(y_latent_h)
-X_scaled = StandardScaler().fit_transform(X_latent_h)
-for (emb_name, emb), ax in zip(emb_methods.items(), np.atleast_1d(axs)):
-    print(f"processing: {emb_name}")
-    X_emb2d = emb.fit_transform(X_scaled)
-    ax.scatter(X_emb2d[:, 0], X_emb2d[:, 1], c=label_colors)
-    ax.set_title(f"MNIST-1D latent h: {emb_name}")
-
-fig.savefig("mnist1d_ae_latent_embeddings_2d.svg")
-
-# %% [markdown]
-"""
-If your model is big enough and training is converged, you should see now that
-overall, there is no clear clustering into groups **by label** (the different
-colors) for all classes. Instead, we find many smaller
-"sub-clusters" which share the same label (esp. in the t-SNE plot). In other
-words, there is definitely structure in the learned latent `h` representations
-of the data (else we'd see only uniform 2D
-blobs), just not one that can be easily mapped to class labels. So why is that?
-
-This may be because the autoencoder was *not* trained to classify inputs by
-label, but to reconstruct and denoise them. Hence the model learns to produce
-latent codes that help in doing that, and as a result may focus on other
-structural elements of the data than those which a classification model would
-use to discriminate between classes. We will investigate this now in more
-detail.
-
-Note: Dimensionality reduction is a tricky business which by construction is a
-process where information is lost, while trying to retain the most prominent
-parts. Also, each method has hyper-parameters that need to be explored before
-over-interpreting any method's results. Still, if the model had learned to
-produce very distinct embeddings, we would also expect to see this even in a 2D
-space.
-
-To gain more insights, we now compute additional t-SNE embeddings: We
-project the MNIST-1D *inputs* of dimension 40 into a 2D space.
-"""
-
-# %%
-from sklearn.cluster import HDBSCAN, KMeans
-
-
-def cluster(X):
-    print("Running clustering ...")
-    cl = HDBSCAN(min_cluster_size=5, min_samples=1)
-    ##cl = KMeans(n_clusters=10)
-    cl.fit(StandardScaler().fit_transform(X))
-    return cl.labels_
-
-
-print("Running 2D embedding ...")
-X_latent_h_emb2d = TSNE(n_components=2, random_state=23).fit_transform(
-    StandardScaler().fit_transform(X_latent_h)
-)
-
-cases = [
-    dict(
-        dset_name="MNIST-1D latent h, class labels",
-        X=X_latent_h_emb2d,
-        y=y_latent_h,
-        clustered=False,
-        compute_emb2d=False,
-    ),
-    dict(
-        dset_name="MNIST-1D input (clean), class labels",
-        X=X_clean,
-        y=y_clean,
-        clustered=False,
-        compute_emb2d=True,
-    ),
-    dict(
-        dset_name="MNIST-1D input (noisy), class labels",
-        X=X_noisy,
-        y=y_noisy,
-        clustered=False,
-        compute_emb2d=True,
-    ),
-    ##dict(
-    ##    dset_name="MNIST-1D latent h, cluster labels",
-    ##    X=X_latent_h_emb2d,
-    ##    y=cluster(X_latent_h),
-    ##    clustered=True,
-    ##    compute_emb2d=False,
-    ##),
-    ##dict(
-    ##    dset_name="MNIST-1D input, cluster labels",
-    ##    X=X_clean,
-    ##    y=cluster(X_clean),
-    ##    clustered=True,
-    ##    compute_emb2d=True,
-    ##),
-]
-
-ncols = len(cases)
-nrows = 1
-fig, axs = plt.subplots(
-    nrows=nrows, ncols=ncols, figsize=(5 * ncols, 5 * nrows)
-)
-
-for dct, ax in zip(cases, np.atleast_1d(axs)):
-    dset_name = dct["dset_name"]
-    y = dct["y"]
-    clustered = dct["clustered"]
-    X = dct["X"]
-    compute_emb2d = dct["compute_emb2d"]
-    if compute_emb2d:
-        X_emb2d = TSNE(n_components=2, random_state=23).fit_transform(
-            StandardScaler().fit_transform(X)
-        )
-    else:
-        X_emb2d = X
-    print(f"processing: {dset_name}")
-    if clustered:
-        msk_clusters = y >= 0
-        msk_no_clusters = y < 0
-        y_clusters = y[msk_clusters]
-        ax.scatter(
-            X_emb2d[msk_clusters, 0],
-            X_emb2d[msk_clusters, 1],
-            c=get_label_colors(y_clusters),
-        )
-        ax.scatter(
-            X_emb2d[msk_no_clusters, 0],
-            X_emb2d[msk_no_clusters, 1],
-            color="k",
-            marker="+",
-            alpha=0.2,
-        )
-        n_unique_labels = len(np.unique(y_clusters))
-    else:
-        ax.scatter(X_emb2d[:, 0], X_emb2d[:, 1], c=get_label_colors(y))
-        n_unique_labels = len(np.unique(y))
-    ax.set_title(f"{dset_name} \n#labels = {n_unique_labels}")
-
-fig.savefig("mnist1d_embeddings_2d_compare.svg")
-
-
-# %% [markdown]
-"""
-On the left we have the same 2D plot as before, a projection of the learned
-latent `h` into 2D space. The middle and right plots show the t-SNE embedding of the
-40-dimensional inputs. We can make the following observations:
-
-* The input embeddings (middle and right) look very similar, so the noise we
-  added to the clean data is such that more than enough of the clean data
-  characteristics are retained, such that learning a denoising model is
-  actually possible.
-* The embedding of the latens `h` and that of the inputs are similar in terms of which
-  classes cluster more (or not). Note that we embed with t-SNE 10 dimensional
-  and 40 dimensional data and hence the produced 2D *shapes* are not *the same*
-  as those have no meaning as such. Only the spatial distiribution of the class
-  colors is what matters.
-* Recall that the inputs and the
-  latent `h` look *very* different, yet their 2D representations are remarkably
-  similar. This shows that the latent codes `h` indeed en**code** the
-  characteristics of the data, even though their numbers (e.g. plotted in 1D)
-  appear meaningless to us. Be reminded that, just as with a standard
-  compression method (like xz, zip, lz4, ...) the compressed data looks nothing
-  like the input. You need the compressed version *plus* the compression
-  (encoder) and decompression (decoder) software. In our case, the autoencoder
-  with its learned weights is the "software", applicable to this dataset.
-* All plots show again sub-clusters that share labels, rather than one cluster
-  per class. This shows that MNIST-1D is in fact a pretty hard nut to crack,
-  when used as a classification dataset (in contrast to MNIST, say, which can
-  be solved even by simple linear models). As we stated earlier, our
-  autoencoder learns the overall characteristics of the data to solve the
-  *reconstruction* task, independent of the labels, which are not used in
-  training.
-* The left plot looks less fragmented (less sub-clusters) than even the
-  embedding of the clean data (middle). This suggests that the latent `h` carry
-  only essential information regarding the data characteristics, i.e. the
-  autoencoder managed to remove data features that are not important.
-"""
+np.save("X_latent_h.npy", X_latent_h)
+np.save("y_latent_h.npy", y_latent_h)
 
 
 # %% [markdown]
@@ -1178,5 +991,5 @@ train_dataloader, test_dataloader = get_dataloaders(
 and change `denoising` to `False`.
 
 No other change is necessary. Re-execute all following cells. Does this have an
-effect on the 2D projections of the latent `h`?
+effect on the reconstructions?
 """
