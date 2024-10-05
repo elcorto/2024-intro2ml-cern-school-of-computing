@@ -102,7 +102,10 @@ y_latent_h = np.load("y_latent_h.npy")
 
 # %% [markdown]
 """
-Let's project the latent representations `h` of dimension 10 into a 2D space
+In the autoencoder lesson, we plotted the latent `h` and found it hard to find
+some structure by visual inspection.
+
+Let's now project the latent representations `h` of dimension 10 into a 2D space
 and see if we can find some structure there. For this we use [t-distributed
 Stochastic Neighbor Embedding
 (t-SNE)](https://scikit-learn.org/stable/modules/manifold.html#t-distributed-stochastic-neighbor-embedding-t-sne)
@@ -136,27 +139,23 @@ fig.savefig("mnist1d_ae_latent_embeddings_2d.svg")
 
 # %% [markdown]
 """
-If your model is big enough and training is converged, you should see now that
-overall, there is no clear clustering into groups **by label** (the different
-colors) for all classes. Instead, we find many smaller
-"sub-clusters" which share the same label (esp. in the t-SNE plot). In other
-words, there is definitely structure in the learned latent `h` representations
-of the data (else we'd see only uniform 2D
-blobs), just not one that can be easily mapped to class labels. So why is that?
+If your autoencoder model is big enough and training is converged, you should
+see now that overall, there is no clear clustering into groups **by label**
+(the different colors) for all classes. Instead, we find some classes which are
+represented by a number of smaller "sub-clusters" which share the same label
+(esp. in the t-SNE plot). Other classes don't show sub-clusters, but are
+instead scattered all over the place.
 
-This may be because the autoencoder was *not* trained to classify inputs by
-label, but to reconstruct and denoise them. Hence the model learns to produce
-latent codes that help in doing that, and as a result may focus on other
-structural elements of the data than those which a classification model would
-use to discriminate between classes. We will investigate this now in more
-detail.
+In summary, there is definitely structure in the learned latent `h` representations
+of the data, just not one that can be easily mapped to one class label per cluster.
+So why is that? We will investigate this now in more detail.
 
 Note: Dimensionality reduction is a tricky business which by construction is a
 process where information is lost, while trying to retain the most prominent
 parts. Also, each method has hyper-parameters that need to be explored before
 over-interpreting any method's results. Still, if the model had learned to
-produce very distinct embeddings, we would also expect to see this even in a 2D
-space.
+produce very distinct embeddings `h` per class label, we would also expect to
+see this even in a 2D space.
 
 To gain more insights, we now compute additional t-SNE embeddings: We
 project the MNIST-1D *inputs* of dimension 40 into a 2D space.
@@ -269,13 +268,13 @@ latent `h` into 2D space. The middle and right plots show the t-SNE embedding of
 
 * The input embeddings (middle and right) look very similar, so the noise we
   added to the clean data is such that more than enough of the clean data
-  characteristics are retained, such that learning a denoising model is
-  actually possible.
-* The embedding of the latens `h` and that of the inputs are similar in terms of which
-  classes cluster more (or not). Note that we embed with t-SNE 10 dimensional
-  and 40 dimensional data and hence the produced 2D *shapes* are not *the same*
-  as those have no meaning as such. Only the spatial distiribution of the class
-  colors is what matters.
+  characteristics are retained, which makes learning a denoising model
+  possible in the first place.
+* The embedding of the latent `h` and that of the inputs are similar in terms of which
+  classes cluster (or not). Note that we embed with t-SNE 10 dimensional and 40
+  dimensional data and hence the produced 2D *shapes* are not expected to be
+  the same, as those have no meaning in t-SNE. Only the spatial distribution
+  of the class colors is what matters.
 * Recall that the inputs and the
   latent `h` look *very* different, yet their 2D representations are remarkably
   similar. This shows that the latent codes `h` indeed en**code** the
@@ -285,17 +284,25 @@ latent `h` into 2D space. The middle and right plots show the t-SNE embedding of
   like the input. You need the compressed version *plus* the compression
   (encoder) and decompression (decoder) software. In our case, the autoencoder
   with its learned weights is the "software", applicable to this dataset.
-* All plots show again sub-clusters that share labels, rather than one cluster
-  per class. This shows that MNIST-1D is in fact a pretty hard nut to crack,
-  when used as a classification dataset (in contrast to MNIST, say, which can
-  be solved even by simple linear models). As we stated earlier, our
-  autoencoder learns the overall characteristics of the data to solve the
-  *reconstruction* task, independent of the labels, which are not used in
-  training.
 * The left plot looks less fragmented (less sub-clusters) than even the
   embedding of the clean data (middle). This suggests that the latent `h` carry
   only essential information regarding the data characteristics, i.e. the
   autoencoder managed to remove data features that are not important.
+
+But the question remains: Why don't we see one single cluster per class label?
+Two hypotheses come to mind:
+
+* The autoencoder was *not* trained to classify inputs by label, but to
+  reconstruct and denoise them. Hence the model may learn to produce latent codes
+  that help in doing that, and as a result may focus on other structural elements
+  of the data than those which a classification model would use to discriminate
+  between classes.
+
+* Given the similarity of the input and latent `h`'s 2D embeddings, maybe the
+  dataset itself is hard, in the sense that some classes can be separated by
+  input data features (the ones that show up in sub-clusters), while other
+  inputs with different class labels have in fact very similar data
+  characteristics.
 """
 
 
