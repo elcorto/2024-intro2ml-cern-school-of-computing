@@ -26,6 +26,10 @@ a classification CNN, which has a completely different task. Instead of
 learning to compress (and denoise) the data, it must classify the inputs by
 label. We will look at its latent representations of the data. Does
 it learn to pay attention to the same data characteristics to solve its task?
+
+**This notebook requires the files `X_latent_h.npy` and `y_latent_h.py` written
+by the autoencoder notebook. If those are not resent, please (re-)run this
+first.**
 """
 
 
@@ -39,11 +43,13 @@ from collections import defaultdict
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
-from matplotlib import gridspec, pyplot as plt
+from matplotlib import pyplot as plt
+from sklearn.manifold import TSNE, Isomap
+from sklearn.preprocessing import StandardScaler
 
 from mnist1d.data import get_dataset_args, make_dataset
 
-from utils import model_summary, MNIST1D, colors_10, get_label_colors
+from utils import model_summary, MNIST1D, get_label_colors
 
 np.random.seed(13)
 torch.random.manual_seed(12)
@@ -95,6 +101,8 @@ def get_dataloaders(batch_size=64):
     return train_dataloader, test_dataloader
 
 
+# %%
+# Load autoencoder latent h produced by the autoencoder notebook.
 X_latent_h = np.load("X_latent_h.npy")
 y_latent_h = np.load("y_latent_h.npy")
 
@@ -115,9 +123,8 @@ offers.
 """
 
 # %%
-from sklearn.manifold import TSNE, Isomap
-from sklearn.preprocessing import StandardScaler
-
+# We'll cache things in here that we'd like to reuse instead of recomputing
+# them.
 vis_cache = defaultdict(dict)
 
 emb_methods = dict(
@@ -274,8 +281,9 @@ We now build a CNN classification model, the architecture of which is similar
 to our encoder from before. The main difference is that after the convolutional
 layers which do "feature learning" (learn what to pay attention to in the
 input), we have a small MLP that solves the classification task. We will use
-the hidden layer's activations as latent representations.
+its hidden layer's activations as latent representations.
 """
+
 
 # %%
 class MyCNN(torch.nn.Module):
@@ -331,6 +339,7 @@ class MyCNN(torch.nn.Module):
 
         self.layers.append(torch.nn.ReLU())
 
+        # This layer will be used as the latent data representation of the CNN.
         self.layers.append(
             torch.nn.Linear(
                 in_features=2 * latent_ndim,
@@ -355,11 +364,24 @@ class MyCNN(torch.nn.Module):
         #   inputs of size (batch_size, 40) do not work,
         #   inputs of size (batch_size, 1, 40) do work
         if len(x.shape) == 2:
-            hidden_out = self.layers(torch.unsqueeze(x, dim=1))
+            latent_cnn = self.layers(torch.unsqueeze(x, dim=1))
         else:
-            hidden_out = self.layers(x)
-        return self.final_layers(hidden_out), hidden_out
+            latent_cnn = self.layers(x)
 
+        # In contrast to a standard forward() method, we return a tuple with
+        # the normal output and the latent representation. We account for that
+        # in the train function and in other places where we call model(X).
+        return self.final_layers(latent_cnn), latent_cnn
+
+
+# %% [markdown]
+# Next we define a function that runs the training. This function is almost the
+# same as the one used for the autoencoder. The differences are:
+#
+# * Instead of having noisy data `X_noisy` as input and `X_clean` as target
+#   (autoencoder), we now have `X_clean` as input and `y_clean` (class labels) as
+#   target (classification).
+# * We also record the classification accuracy in the `logs` dict.
 
 # %%
 from sklearn.metrics import accuracy_score as accuracy
@@ -391,7 +413,7 @@ def train_classifier(
 
         model.train()
         for X_train, y_train in train_dataloader:
-            # forward pass, discard hidden_out here
+            # forward pass, discard latent_cnn here
             y_pred_train_logits, _ = model(X_train.to(device))
 
             train_loss = loss_func(y_pred_train_logits, y_train.to(device))
@@ -490,7 +512,7 @@ fig, ax = plt.subplots(1, 2, figsize=(10, 4))
 ax[0].plot(logs["train_loss"], color="b", label="train")
 ax[0].plot(logs["test_loss"], color="orange", label="test")
 ax[0].set_xlabel("epoch")
-ax[0].set_ylabel("avergage MSE Loss / a.u.")
+ax[0].set_ylabel("average MSE Loss / a.u.")
 ax[0].set_yscale("log")
 ax[0].set_title("Loss")
 ax[0].legend()
@@ -498,7 +520,7 @@ ax[0].legend()
 ax[1].plot(logs["train_acc"], color="b", label="train")
 ax[1].plot(logs["test_acc"], color="orange", label="test")
 ax[1].set_xlabel("epoch")
-ax[1].set_ylabel("avergage Accuracy / a.u.")
+ax[1].set_ylabel("average Accuracy / a.u.")
 ax[1].set_title("Accuracy")
 ax[1].legend()
 
@@ -511,9 +533,6 @@ Let's create a 2D projection of the CNN's latent representation.
 """
 
 # %%
-from sklearn.manifold import TSNE, Isomap
-from sklearn.preprocessing import StandardScaler
-
 with torch.no_grad():
     X_latent_cnn = model(torch.from_numpy(X_clean).float())[1]
 y_latent_cnn = y_clean
