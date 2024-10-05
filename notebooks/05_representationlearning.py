@@ -76,7 +76,6 @@ X_test = X_noisy[:8, ...]
 
 
 # %%
-#
 # This function is much simpler now, since we train on clean inputs and
 # targets.
 #
@@ -102,6 +101,8 @@ y_latent_h = np.load("y_latent_h.npy")
 
 # %% [markdown]
 """
+## Projection of the autoencoder latent `h` in 2D
+
 In the autoencoder lesson, we plotted the latent `h` and found it hard to find
 some structure by visual inspection.
 
@@ -190,7 +191,7 @@ cases = [
 ncols = len(cases)
 nrows = 1
 fig, axs = plt.subplots(
-    nrows=nrows, ncols=ncols, figsize=(5 * ncols, 5 * nrows)
+    nrows=nrows, ncols=ncols, figsize=(6 * ncols, 5 * nrows)
 )
 
 for dct, ax in zip(cases, np.atleast_1d(axs)):
@@ -276,7 +277,7 @@ input), we have a small MLP that solves the classification task. We will use
 the hidden layer's activations as latent representations.
 """
 
-
+# %%
 class MyCNN(torch.nn.Module):
     def __init__(
         self,
@@ -535,7 +536,7 @@ cases = [
 ncols = len(cases)
 nrows = 1
 fig, axs = plt.subplots(
-    nrows=nrows, ncols=ncols, figsize=(5 * ncols, 5 * nrows)
+    nrows=nrows, ncols=ncols, figsize=(6 * ncols, 5 * nrows)
 )
 
 for dct, ax in zip(cases, np.atleast_1d(axs)):
