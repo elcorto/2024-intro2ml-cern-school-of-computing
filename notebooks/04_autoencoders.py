@@ -701,9 +701,9 @@ latent_ndim = 10
 max_epochs = 20
 enc_channels = [8, 16, 32]
 
-# Longer train, bigger model
+# Longer train, bigger model.
 ##max_epochs = 50
-##enc_channels = [64, 128, 256]
+##enc_channels = [32, 64, 128]
 
 # Regularization parameter to prevent overfitting. This is the AdamW
 # optimizer's default value.
