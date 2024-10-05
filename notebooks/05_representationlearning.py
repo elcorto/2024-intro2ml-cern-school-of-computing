@@ -19,9 +19,13 @@
 
 Effective Machine Learning is often about finding a good and flexible model
 that can represent high-dimensional data well. The autoencoder can be such an
-architecture depending on its design and the input data. In practice, the
-community has started to use the latent representation for all kinds of
-applications.
+architecture.
+
+Here we first investigate the autoencoder's learned latent space. Then we train
+a classification CNN, which has a completely different task. Instead of
+learning to compress (and denoise) the data, it must classify the inputs by
+label. We will look at its latent representations of the data. Does
+it learn to pay attention to the same data characteristics to solve its task?
 """
 
 
@@ -72,6 +76,10 @@ X_test = X_noisy[:8, ...]
 
 
 # %%
+#
+# This function is much simpler now, since we train on clean inputs and
+# targets.
+#
 def get_dataloaders(batch_size=64):
     dataset_train_clean = MNIST1D(mnist1d_args=clean_config, train=True)
     dataset_test_clean = MNIST1D(mnist1d_args=clean_config, train=False)
@@ -293,14 +301,20 @@ latent `h` into 2D space. The middle and right plots show the t-SNE embedding of
 
 # %% [markdown]
 """
-## Classifying MNIST1D
+## Classifying MNIST-1D
 
-Similar to [MNIST](https://yann.lecun.com/exdb/mnist/), `mnist1d` can be used
-for the task of classification. In other words, given an input sequence, we
-only want to predict the class label `[0,1,...,9]` that the image belongs to.
+Similar to [MNIST](https://yann.lecun.com/exdb/mnist/), MNIST-1D can be used
+for the task of classification where, given an input sequence, we
+want to predict the class label `[0,1,...,9]` that the 1D sequence belongs to.
 Classification has been one of the driving forces behind progress in machine
-learning since [ImageNet 2012]() - for better or worse. In science,
-classification is used rarely.
+learning, with [AlexNet](https://dl.acm.org/doi/10.1145/3065386) in 2012
+being one of the initial milestones of modern deep learning.
+
+We now build a CNN classification model, the architecture of which is similar
+to our encoder from before. The main difference is that after the convolutional
+layers which do "feature learning" (learn what to pay attention to in the
+input), we have a small MLP that solves the classification task. We will use
+the hidden layer's activations as latent representations.
 """
 
 
@@ -511,6 +525,11 @@ ax[1].legend()
 fig.savefig("mnist1d_cnn_loss_acc.svg")
 
 
+# %% [markdown]
+"""
+Let's create a 2D projection of the CNN's latent representation.
+"""
+
 # %%
 from sklearn.manifold import TSNE, Isomap
 from sklearn.preprocessing import StandardScaler
@@ -538,3 +557,10 @@ for (emb_name, emb), ax in zip(emb_methods.items(), np.atleast_1d(axs)):
     ax.set_title(f"MNIST-1D CNN latent: {emb_name}")
 
 fig.savefig("mnist1d_cnn_latent_embeddings_2d.svg")
+
+
+# %% [markdown]
+"""
+OK, well that's interesting! Now, which of the two hypotheses from above do you
+think is correct? Let's discuss!
+"""
