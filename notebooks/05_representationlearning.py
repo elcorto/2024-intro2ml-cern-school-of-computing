@@ -162,58 +162,22 @@ project the MNIST-1D *inputs* of dimension 40 into a 2D space.
 """
 
 # %%
-from sklearn.cluster import HDBSCAN, KMeans
-
-
-def cluster(X):
-    print("Running clustering ...")
-    cl = HDBSCAN(min_cluster_size=5, min_samples=1)
-    ##cl = KMeans(n_clusters=10)
-    cl.fit(StandardScaler().fit_transform(X))
-    return cl.labels_
-
-
-print("Running 2D embedding ...")
-X_latent_h_emb2d = TSNE(n_components=2, random_state=23).fit_transform(
-    StandardScaler().fit_transform(X_latent_h)
-)
-
 cases = [
     dict(
         dset_name="MNIST-1D latent h, class labels",
-        X=X_latent_h_emb2d,
+        X=X_latent_h,
         y=y_latent_h,
-        clustered=False,
-        compute_emb2d=False,
     ),
     dict(
         dset_name="MNIST-1D input (clean), class labels",
         X=X_clean,
         y=y_clean,
-        clustered=False,
-        compute_emb2d=True,
     ),
     dict(
         dset_name="MNIST-1D input (noisy), class labels",
         X=X_noisy,
         y=y_noisy,
-        clustered=False,
-        compute_emb2d=True,
     ),
-    ##dict(
-    ##    dset_name="MNIST-1D latent h, cluster labels",
-    ##    X=X_latent_h_emb2d,
-    ##    y=cluster(X_latent_h),
-    ##    clustered=True,
-    ##    compute_emb2d=False,
-    ##),
-    ##dict(
-    ##    dset_name="MNIST-1D input, cluster labels",
-    ##    X=X_clean,
-    ##    y=cluster(X_clean),
-    ##    clustered=True,
-    ##    compute_emb2d=True,
-    ##),
 ]
 
 ncols = len(cases)
@@ -224,37 +188,14 @@ fig, axs = plt.subplots(
 
 for dct, ax in zip(cases, np.atleast_1d(axs)):
     dset_name = dct["dset_name"]
-    y = dct["y"]
-    clustered = dct["clustered"]
     X = dct["X"]
-    compute_emb2d = dct["compute_emb2d"]
-    if compute_emb2d:
-        X_emb2d = TSNE(n_components=2, random_state=23).fit_transform(
-            StandardScaler().fit_transform(X)
-        )
-    else:
-        X_emb2d = X
+    y = dct["y"]
+    X_emb2d = TSNE(n_components=2, random_state=23).fit_transform(
+        StandardScaler().fit_transform(X)
+    )
     print(f"processing: {dset_name}")
-    if clustered:
-        msk_clusters = y >= 0
-        msk_no_clusters = y < 0
-        y_clusters = y[msk_clusters]
-        ax.scatter(
-            X_emb2d[msk_clusters, 0],
-            X_emb2d[msk_clusters, 1],
-            c=get_label_colors(y_clusters),
-        )
-        ax.scatter(
-            X_emb2d[msk_no_clusters, 0],
-            X_emb2d[msk_no_clusters, 1],
-            color="k",
-            marker="+",
-            alpha=0.2,
-        )
-        n_unique_labels = len(np.unique(y_clusters))
-    else:
-        ax.scatter(X_emb2d[:, 0], X_emb2d[:, 1], c=get_label_colors(y))
-        n_unique_labels = len(np.unique(y))
+    ax.scatter(X_emb2d[:, 0], X_emb2d[:, 1], c=get_label_colors(y))
+    n_unique_labels = len(np.unique(y))
     ax.set_title(f"{dset_name} \n#labels = {n_unique_labels}")
 
 fig.savefig("mnist1d_embeddings_2d_compare.svg")
