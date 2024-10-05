@@ -64,7 +64,7 @@ handle. We will set up an autoencoder to tackle the task of **denoising**, i.e.
 to remove stochastic fluctuations from the input as best as possible.
 
 First, let's prepare a dataset which contains a noisy signal that we wish to
-denoise. For that we use the MNIST1D dataset from earlier and add artificial
+denoise. For that we use the MNIST-1D dataset from earlier and add artificial
 noise. The autoencoder's task is to remove this noise by learning the
 characteristics of the data.
 """
@@ -80,7 +80,8 @@ from matplotlib import gridspec, pyplot as plt
 
 from mnist1d.data import get_dataset_args, make_dataset
 
-from utils import model_summary, MNIST1D
+from utils import model_summary, MNIST1D, colors_10, get_label_colors
+
 
 np.random.seed(13)
 torch.random.manual_seed(12)
@@ -102,10 +103,12 @@ noisy_config.seed = 40
 noisy_mnist1d = make_dataset(noisy_config)
 X_noisy, y_noisy = noisy_mnist1d["x"], noisy_mnist1d["y"]
 
-# We use the same random seed, so this must be the same
+# We use the same random seed for clean_config and noisy_config, so this must
+# be the same.
 assert (y_clean == y_noisy).all()
 
-# Convert numpy -> torch for usage in next cells
+# Convert numpy -> torch for usage in next cells. For training, we will build a
+# DataLoader later.
 X_noisy = torch.from_numpy(X_noisy).float()
 
 # 4000 data points of dimension 40
@@ -136,7 +139,7 @@ for sample in range(10):
     if col == 4 and row == 0:
         ax[row, col].legend()
 
-fig.suptitle("MNIST1D examples")
+fig.suptitle("MNIST-1D examples")
 fig.savefig("mnist1d_noisy_first10.svg")
 
 # %% [markdown]
@@ -173,7 +176,7 @@ In our **denoising** case, the task is even harder, since the autoencoder shall
 not only reconstruct clean data from clean inputs, but is given noisy inputs
 and is tasked to reconstruct the unknown clean version.
 
-Since we have have the same MNIST1D data as before, we'll use convolutional
+Since we have the same MNIST-1D data as before, we'll use convolutional
 layers to build the autoencoder. In particular, we follow this design for 2D
 convolutions of images, adapted to our 1D case.
 
@@ -255,19 +258,20 @@ use the `model_summary()` helper function.
 """
 
 # %%
-enc = MyEncoder()
+with torch.no_grad():
+    enc = MyEncoder()
 
-# extract only first 8 samples for testing
-X_test = X_noisy[:8, ...]
+    # extract only first 8 samples for testing
+    X_test = X_noisy[:8, ...]
 
-latent_h = enc(X_test)
+    X_latent_h = enc(X_test)
 
-assert (
-    latent_h.shape[-1] < X_test.shape[-1]
-), f"{latent_h.shape[-1]} !< {X_test.shape[-1]}"
+    assert (
+        X_latent_h.shape[-1] < X_test.shape[-1]
+    ), f"{X_latent_h.shape[-1]} !< {X_test.shape[-1]}"
 
-print(f"{X_test[:1, ...].shape=}")
-print(model_summary(enc, input_size=X_test[:1, ...].shape))
+    print(f"{X_test[:1, ...].shape=}")
+    print(model_summary(enc, input_size=X_test[:1, ...].shape))
 
 # %% [markdown]
 """
@@ -389,19 +393,20 @@ class MyDecoder(torch.nn.Module):
 
 
 # %%
-dec = MyDecoder()
+with torch.no_grad():
+    dec = MyDecoder()
 
-X_prime = dec(latent_h)
-assert (
-    X_prime.squeeze(1).shape == X_test.shape
-), f"{X_prime.squeeze(1).shape} != {X_test.shape}"
+    X_prime = dec(X_latent_h)
+    assert (
+        X_prime.squeeze(1).shape == X_test.shape
+    ), f"{X_prime.squeeze(1).shape} != {X_test.shape}"
 
-print(f"{latent_h[:1, ...].shape=}")
-print(model_summary(dec, input_size=latent_h[:1, ...].shape))
+    print(f"{X_latent_h[:1, ...].shape=}")
+    print(model_summary(dec, input_size=X_latent_h[:1, ...].shape))
 
 # %% [markdown]
 """
-Now we have now all the lego bricks in place to compose an autoencoder. We do
+Now we have all the lego bricks in place to compose an autoencoder. We do
 this by combining the encoder and decoder in yet another `torch.nn.Module`.
 """
 
@@ -418,6 +423,9 @@ class MyAutoencoder(torch.nn.Module):
             input_ndim=input_ndim,
             latent_ndim=latent_ndim,
         )
+
+        # The decoder is a flipped encoder, so we use enc_channels in reversed
+        # order.
         self.dec = MyDecoder(
             channels=enc_channels[::-1],
             latent_ndim=latent_ndim,
@@ -440,15 +448,16 @@ We can test our autoencoder to make sure it works as expected similar to what we
 """
 
 # %%
-model = MyAutoencoder()
-X_prime = model(X_test)
+with torch.no_grad():
+    model = MyAutoencoder()
+    X_prime = model(X_test)
 
-assert (
-    X_prime.squeeze(1).shape == X_test.shape
-), f"{X_prime.squeeze(1).shape} != {X_test.shape}"
+    assert (
+        X_prime.squeeze(1).shape == X_test.shape
+    ), f"{X_prime.squeeze(1).shape} != {X_test.shape}"
 
-print(f"{X_test[:1, ...].shape=}")
-print(model_summary(model, input_size=X_test[:1, ...].shape))
+    print(f"{X_test[:1, ...].shape=}")
+    print(model_summary(model, input_size=X_test[:1, ...].shape))
 
 
 # %% [markdown]
@@ -540,12 +549,12 @@ print(f"{X_train_clean.shape=} {y_train_clean.shape=}")
 """
 We observe:
 
-* The `DataLoader` (via the MNIST1D custom Dataset) has added a channel
+* The `DataLoader` (via the `MNIST1D` custom Dataset) has added a channel
   dimension, such that in each batch of `batch_size=64`, `X.shape` is `[64, 1,
   40]` rather than `[64, 40]`. That is just a convenience feature. Our model can
   handle either.
 * The `DataLoader` also returns the labels `y_train_*` since that is part of the
-  MNIST1D Dataset. We will discard them below, since for training an
+  MNIST-1D Dataset. We will discard them below, since for training an
   autoencoder, we only need the inputs `X`.
 """
 
@@ -584,6 +593,8 @@ for batch_idx, (gs, (train_noisy, train_clean)) in enumerate(
     )
     ax.set_title(title)
     ax.legend()
+
+fig.savefig("mnist1d_random_from_dataloader.svg")
 
 # %% [markdown]
 """
@@ -686,9 +697,15 @@ tensor from `train_dataloader`, which has shape `[batch_size, 1, 40]`.
 # %%
 # hyper-parameters that influence model and training
 learning_rate = 1e-3
-max_epochs = 50
 latent_ndim = 10
+
+# Fast train, small model
+max_epochs = 20
 enc_channels = [8, 16, 32]
+
+# Longer train, bigger model
+##max_epochs = 50
+##enc_channels = [64, 128, 256]
 
 # Regularization parameter to prevent overfitting. This is the AdamW
 # optimizer's default value.
@@ -807,10 +824,12 @@ We can see that the autoencoder smoothed the input signal when producing a
 reconstruction.
 
 However, the model predictions, i.e. the denoised reconstructions of clean
-data, are actually not very good -- too much smoothing in some parts of a
+data, are actually not very good when using, say `max_epochs=20` and
+`enc_channels=[8, 16, 32]`. We have too much smoothing in some parts of a
 signal, following the input signal too much in other parts. The same could
-probably be achieved by a much simpler method such as a moving average :) Also,
-looking at the loss plot, it seems that the training is not yet converged.
+probably be achieved by a much simpler method such as a moving average or a
+Gaussian blur :) Also, looking at the loss plot, it seems that the training is
+not yet converged.
 
 Try to improve this by varying the following parameters and observe their
 effect on the reconstruction. Re-execute the cells above which define the model,
@@ -818,7 +837,8 @@ set the hyper-parameters and run the training.
 
 Training:
 
-* `max_epochs`: try training for 100 or 200 epochs
+* `max_epochs`: try training for 100 or 200 epochs, watch out for
+  **overfitting**, when test loss > train loss
 * `learning_rate`: try 10x and 1/10 of the value above
 
 Model architecture:
@@ -836,7 +856,7 @@ latent_ndim = 10
 enc_channels = [8, 16, 32]
 ```
 
-and change parameters as need. The re-execute all following cells.
+and change parameters as needed. The re-execute all following cells.
 
 Note on `enc_channels`: Deeper models with more conv steps such as
 `[8,16,32,64,128,256]` is not possible with our code since in the encoder we
@@ -845,20 +865,33 @@ half the dimension with every conv step using strided convolutions: 40 - 20 -
 a multiple of 2 and (b) non-zero. To make the model deeper, we'd need to drop
 strided convolutions and use another way to shrink the dimension, e.g. by
 combining normal `stride=1` convolutions with max or average pooling layers.
+
+**Once you have a model that is able to faithfully denoise the input, then
+proceed to the next sections. Without a good enough model, the following lesson
+may lead to wrong conclusions.**
 """
 
 # %% [markdown]
 """
 ## Visualize the latent space
 
+The autoencoder's main selling point is to compress data into the latent space
+vectors / codes / embeddings `h`. Now we have a closer look at them.
+
 We now plot, separate for each label, each clean `X_test_clean[i]` and the
 latent embedding `h=enc(X_test_noisy[i])` of the noisy input. Do we find a
 correspondence between input and latent representation?
+
+Note: We plot the clean data version to better visualize the data
+characteristics without noise overlay. But we calculate the latent `h` using
+the noisy inputs because that is what the autoencoder was trained with. To
+use only the trained encoder part we use `model.enc(X)`.
 """
 
 # %%
 with torch.no_grad():
     model.eval()
+    colors = colors_10
 
     # 2x 10 figures for our 10 labels [0,1,...,9]
     grid_data = gridspec.GridSpec(nrows=2, ncols=5)
@@ -882,33 +915,31 @@ with torch.no_grad():
         axs_latent.append(fig_latent.add_subplot(gs))
         axs_latent[-1].set_title(f"latent h, {label=}")
 
-    # https://matplotlib.org/stable/gallery/color/color_cycle_default.html
-    prop_cycle = plt.rcParams["axes.prop_cycle"]
-    colors = prop_cycle.by_key()["color"]
-    assert len(colors) == 10
-
-    latent_h = []
-    labels = []
+    X_latent_h = []
+    y_latent_h = []
     for test_noisy, test_clean in test_dataloader:
         X_test_noisy, y_test_noisy = test_noisy
         X_test_clean, y_test_clean = test_clean
         assert (y_test_noisy == y_test_clean).all()
         for idx_in_batch in range(len(y_test_clean)):
-            y = y_test_clean[idx_in_batch]
-            axs_data[y].plot(
-                X_test_clean[idx_in_batch].squeeze(), color=colors[y]
+            y_i = y_test_clean[idx_in_batch]
+            axs_data[y_i].plot(
+                X_test_clean[idx_in_batch].squeeze(), color=colors[y_i]
             )
             h = model.enc(X_test_noisy[idx_in_batch]).squeeze()
             axs_latent[y].plot(h, color=colors[y])
             latent_h.append(h)
             labels.append(y)
 
-    latent_h = np.array(latent_h)
-    labels = np.array(labels)
+fig_data.savefig("mnist1d_ae_clean_input.svg")
+fig_latent.savefig("mnist1d_ae_latent_from_noisy.svg")
 
 
 # %% [markdown]
 """
+The first two rows show the input data, the last two rows show the latent `h`.
+Each color represents one of the 10 class labels.
+
 We find that all latent `h` vectors look very similar, so it is hard to
 visually find clusters of embeddings that belong to a certain label.
 
