@@ -80,7 +80,7 @@ from matplotlib import gridspec, pyplot as plt
 
 from mnist1d.data import get_dataset_args, make_dataset
 
-from utils import model_summary, MNIST1D, colors_10, get_label_colors
+from utils import model_summary, MNIST1D, colors_10
 
 
 np.random.seed(13)
@@ -673,9 +673,7 @@ def train_autoencoder(
             )
             test_loss_epoch_sum += test_loss.item()
 
-        logs["train_loss"].append(
-            train_loss_epoch_sum / len(train_dataloader)
-        )
+        logs["train_loss"].append(train_loss_epoch_sum / len(train_dataloader))
         logs["test_loss"].append(test_loss_epoch_sum / len(test_dataloader))
 
         if (epoch + 1) % log_every == 0 or (epoch + 1) == max_epochs:
