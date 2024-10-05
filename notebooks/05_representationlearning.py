@@ -117,6 +117,8 @@ offers.
 from sklearn.manifold import TSNE, Isomap
 from sklearn.preprocessing import StandardScaler
 
+vis_cache = defaultdict(dict)
+
 emb_methods = dict(
     tsne=TSNE(n_components=2, random_state=23),
     isomap=Isomap(n_components=2),
@@ -134,6 +136,8 @@ for (emb_name, emb), ax in zip(emb_methods.items(), np.atleast_1d(axs)):
     X_emb2d = emb.fit_transform(X_scaled)
     ax.scatter(X_emb2d[:, 0], X_emb2d[:, 1], c=label_colors)
     ax.set_title(f"MNIST-1D latent h: {emb_name}")
+    vis_cache["ae_latent_h"][emb_name] = dict(X_emb2d=X_emb2d, y=y_latent_h)
+
 
 fig.savefig("mnist1d_ae_latent_embeddings_2d.svg")
 
@@ -164,19 +168,22 @@ project the MNIST-1D *inputs* of dimension 40 into a 2D space.
 # %%
 cases = [
     dict(
-        dset_name="MNIST-1D latent h, class labels",
-        X=X_latent_h,
-        y=y_latent_h,
+        dset_name="MNIST-1D AE latent h, class labels",
+        X=vis_cache["ae_latent_h"]["tsne"]["X_emb2d"],
+        y=vis_cache["ae_latent_h"]["tsne"]["y"],
+        compute=False,
     ),
     dict(
         dset_name="MNIST-1D input (clean), class labels",
         X=X_clean,
         y=y_clean,
+        compute=True,
     ),
     dict(
         dset_name="MNIST-1D input (noisy), class labels",
         X=X_noisy,
         y=y_noisy,
+        compute=True,
     ),
 ]
 
@@ -190,10 +197,14 @@ for dct, ax in zip(cases, np.atleast_1d(axs)):
     dset_name = dct["dset_name"]
     X = dct["X"]
     y = dct["y"]
-    X_emb2d = TSNE(n_components=2, random_state=23).fit_transform(
-        StandardScaler().fit_transform(X)
-    )
+    compute = dct["compute"]
     print(f"processing: {dset_name}")
+    if compute:
+        X_emb2d = TSNE(n_components=2, random_state=23).fit_transform(
+            StandardScaler().fit_transform(X)
+        )
+    else:
+        X_emb2d = X
     ax.scatter(X_emb2d[:, 0], X_emb2d[:, 1], c=get_label_colors(y))
     n_unique_labels = len(np.unique(y))
     ax.set_title(f"{dset_name} \n#labels = {n_unique_labels}")
@@ -506,26 +517,44 @@ with torch.no_grad():
     X_latent_cnn = model(torch.from_numpy(X_clean).float())[1]
 y_latent_cnn = y_clean
 
-emb_methods = dict(
-    tsne=TSNE(n_components=2, random_state=23),
-    ##isomap=Isomap(n_components=2),
-)
+cases = [
+    dict(
+        dset_name="MNIST-1D AE latent h, class labels",
+        X=vis_cache["ae_latent_h"]["tsne"]["X_emb2d"],
+        y=vis_cache["ae_latent_h"]["tsne"]["y"],
+        compute=False,
+    ),
+    dict(
+        dset_name="MNIST-1D CNN latent, class labels",
+        X=X_latent_cnn,
+        y=y_latent_cnn,
+        compute=True,
+    ),
+]
 
-ncols = 1
-nrows = len(emb_methods)
+ncols = len(cases)
+nrows = 1
 fig, axs = plt.subplots(
     nrows=nrows, ncols=ncols, figsize=(5 * ncols, 5 * nrows)
 )
-label_colors = get_label_colors(y_latent_cnn)
-X_scaled = StandardScaler().fit_transform(X_latent_cnn)
-for (emb_name, emb), ax in zip(emb_methods.items(), np.atleast_1d(axs)):
-    print(f"processing: {emb_name}")
-    X_emb2d = emb.fit_transform(X_scaled)
-    ax.scatter(X_emb2d[:, 0], X_emb2d[:, 1], c=label_colors)
-    ax.set_title(f"MNIST-1D CNN latent: {emb_name}")
+
+for dct, ax in zip(cases, np.atleast_1d(axs)):
+    dset_name = dct["dset_name"]
+    X = dct["X"]
+    y = dct["y"]
+    compute = dct["compute"]
+    print(f"processing: {dset_name}")
+    if compute:
+        X_emb2d = TSNE(n_components=2, random_state=23).fit_transform(
+            StandardScaler().fit_transform(X)
+        )
+    else:
+        X_emb2d = X
+    ax.scatter(X_emb2d[:, 0], X_emb2d[:, 1], c=get_label_colors(y))
+    n_unique_labels = len(np.unique(y))
+    ax.set_title(f"{dset_name} \n#labels = {n_unique_labels}")
 
 fig.savefig("mnist1d_cnn_latent_embeddings_2d.svg")
-
 
 # %% [markdown]
 """
