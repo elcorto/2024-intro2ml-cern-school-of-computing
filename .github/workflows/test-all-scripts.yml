@@ -34,4 +34,8 @@ jobs:
           python -m pip install -r requirements.txt
       - name: Run all scripts in notebooks
         run: |
-          for pyfile in notebooks/*py;do echo $pyfile; python ${pyfile};done
+          cd notebooks
+          for fn in notebooks/*py; do
+              echo $fn
+              python $fn
+          done
