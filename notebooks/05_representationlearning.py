@@ -319,7 +319,13 @@ the hidden layer's activations as latent representations.
 
 
 class MyCNN(torch.nn.Module):
-    def __init__(self, channels=[25, 25, 25], input_ndim=40, output_ndim=10):
+    def __init__(
+        self,
+        channels=[8, 16, 32],
+        input_ndim=40,
+        output_ndim=10,
+        latent_ndim=64,
+    ):
         super().__init__()
         self.layers = torch.nn.Sequential()
 
@@ -359,13 +365,28 @@ class MyCNN(torch.nn.Module):
         self.layers.append(
             torch.nn.Linear(
                 in_features=in_features,
-                out_features=128,
+                out_features=2 * latent_ndim,
             )
         )
 
-        self.last_linear = torch.nn.Linear(
-            in_features=128,
-            out_features=output_ndim,
+        self.layers.append(torch.nn.ReLU())
+
+        self.layers.append(
+            torch.nn.Linear(
+                in_features=2 * latent_ndim,
+                out_features=latent_ndim,
+            )
+        )
+
+        self.final_layers = torch.nn.Sequential()
+
+        self.final_layers.append(torch.nn.ReLU())
+
+        self.final_layers.append(
+            torch.nn.Linear(
+                in_features=latent_ndim,
+                out_features=output_ndim,
+            )
         )
 
     def forward(self, x):
@@ -377,7 +398,7 @@ class MyCNN(torch.nn.Module):
             hidden_out = self.layers(torch.unsqueeze(x, dim=1))
         else:
             hidden_out = self.layers(x)
-        return self.last_linear(hidden_out), hidden_out
+        return self.final_layers(hidden_out), hidden_out
 
 
 # %%
@@ -452,14 +473,13 @@ train_dataloader, test_dataloader = get_dataloaders(batch_size=batch_size)
 # %%
 # hyper-parameters that influence model and training
 learning_rate = 5e-4
-latent_ndim = 10
+latent_ndim = 64
 
 max_epochs = 50
-channels = [25, 25, 25]
+channels = [32, 64, 128]
 
-# Regularization parameter to prevent overfitting. This is the AdamW
-# optimizer's default value.
-weight_decay = 0.01
+# Regularization parameter to prevent overfitting.
+weight_decay = 0.1
 
 # Defined above already. We skip this here since this is a bit slow. If you
 # want to change batch_size (yet another hyper-parameter!) do it here or in the
@@ -469,7 +489,7 @@ weight_decay = 0.01
 ##    batch_size=batch_size
 ##)
 
-model = MyCNN(channels=channels)
+model = MyCNN(channels=channels, latent_ndim=latent_ndim)
 optimizer = torch.optim.AdamW(
     model.parameters(), lr=learning_rate, weight_decay=weight_decay
 )
@@ -540,7 +560,7 @@ y_latent_cnn = y_clean
 
 emb_methods = dict(
     tsne=TSNE(n_components=2, random_state=23),
-    isomap=Isomap(n_components=2),
+    ##isomap=Isomap(n_components=2),
 )
 
 ncols = 1
