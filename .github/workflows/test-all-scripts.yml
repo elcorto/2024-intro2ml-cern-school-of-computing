@@ -35,7 +35,7 @@ jobs:
       - name: Run all scripts in notebooks
         run: |
           cd notebooks
-          for fn in notebooks/*py; do
+          for fn in *py; do
               echo $fn
               python $fn
           done
