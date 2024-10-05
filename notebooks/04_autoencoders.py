@@ -927,9 +927,25 @@ with torch.no_grad():
                 X_test_clean[idx_in_batch].squeeze(), color=colors[y_i]
             )
             h = model.enc(X_test_noisy[idx_in_batch]).squeeze()
-            axs_latent[y].plot(h, color=colors[y])
-            latent_h.append(h)
-            labels.append(y)
+            axs_latent[y_i].plot(h, color=colors[y_i])
+            X_latent_h.append(h)
+            y_latent_h.append(y_i)
+
+    # To generate more latent data, we'll now also encode the train set and
+    # store its h vectors.
+    for train_noisy, train_clean in train_dataloader:
+        X_train_noisy, y_train_noisy = train_noisy
+        X_train_clean, y_train_clean = train_clean
+        assert (y_train_noisy == y_train_clean).all()
+        for idx_in_batch in range(len(y_train_clean)):
+            y_i = y_train_clean[idx_in_batch]
+            h = model.enc(X_train_noisy[idx_in_batch]).squeeze()
+            X_latent_h.append(h)
+            y_latent_h.append(y_i)
+
+    X_latent_h = np.array(X_latent_h)
+    y_latent_h = np.array(y_latent_h)
+
 
 fig_data.savefig("mnist1d_ae_clean_input.svg")
 fig_latent.savefig("mnist1d_ae_latent_from_noisy.svg")
@@ -943,28 +959,21 @@ Each color represents one of the 10 class labels.
 We find that all latent `h` vectors look very similar, so it is hard to
 visually find clusters of embeddings that belong to a certain label.
 
-Let's project the latent representations into a 2D space and see if we can find
-some structure there. We use several methods from `scikit-learn`, namely
-[t-distributed Stochastic Neighbor Embedding
-(t-SNE)](https://scikit-learn.org/stable/modules/manifold.html#t-distributed-stochastic-neighbor-embedding-t-sne),
-[Multi-dimensional Scaling
-(MDS)](https://scikit-learn.org/stable/modules/manifold.html#multi-dimensional-scaling-mds)
-and an classic [Principal component analysis
-(PCA)](https://scikit-learn.org/stable/modules/decomposition.html#principal-component-analysis-pca).
+Let's project the latent representations `h` of dimension 10 into a 2D space
+and see if we can find some structure there. For this we use [t-distributed
+Stochastic Neighbor Embedding
+(t-SNE)](https://scikit-learn.org/stable/modules/manifold.html#t-distributed-stochastic-neighbor-embedding-t-sne)
+as well as Isomap as one additional method of the many that `scikit-learn`
+offers.
 """
 
 # %%
-from sklearn.manifold import MDS, TSNE
-from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE, Isomap
 from sklearn.preprocessing import StandardScaler
 
-c = [colors[y] for y in labels]
-latent_h_scaled = StandardScaler().fit_transform(latent_h)
-
 emb_methods = dict(
-    tsne=TSNE(n_components=2),
-    mds=MDS(n_components=2),
-    pca=PCA(n_components=2),
+    tsne=TSNE(n_components=2, random_state=23),
+    isomap=Isomap(n_components=2),
 )
 
 ncols = 1
@@ -972,95 +981,180 @@ nrows = len(emb_methods)
 fig, axs = plt.subplots(
     nrows=nrows, ncols=ncols, figsize=(5 * ncols, 5 * nrows)
 )
-for (emb_name, emb), ax in zip(emb_methods.items(), axs):
-    latent_h_proj = emb.fit_transform(latent_h_scaled)
-    ax.scatter(latent_h_proj[:, 0], latent_h_proj[:, 1], c=c)
-    ax.set_title(emb_name)
+label_colors = get_label_colors(y_latent_h)
+X_scaled = StandardScaler().fit_transform(X_latent_h)
+for (emb_name, emb), ax in zip(emb_methods.items(), np.atleast_1d(axs)):
+    print(f"processing: {emb_name}")
+    X_emb2d = emb.fit_transform(X_scaled)
+    ax.scatter(X_emb2d[:, 0], X_emb2d[:, 1], c=label_colors)
+    ax.set_title(f"MNIST-1D latent h: {emb_name}")
+
+fig.savefig("mnist1d_ae_latent_embeddings_2d.svg")
 
 # %% [markdown]
 """
-We see that overall, there is no clear clustering into groups **by label**.
-However, esp. in the t-SNE plot, we find many small clusters, may of which
-belong to a label. The PCA and MDS plots don't show this structure. This can be
-explained as follows.
+If your model is big enough and training is converged, you should see now that
+overall, there is no clear clustering into groups **by label** (the different
+colors) for all classes. Instead, we find many smaller
+"sub-clusters" which share the same label (esp. in the t-SNE plot). In other
+words, there is definitely structure in the learned latent `h` representations
+of the data (else we'd see only uniform 2D
+blobs), just not one that can be easily mapped to class labels. So why is that?
 
-* The autoencoder was *not* trained to classify inputs by label, but to
-  reconstruct and denoise them. Hence the model learns to produce latent codes
-  that help in doing that, and as a result may focus on other structural elements
-  of the data than those which a classification model would use to discriminate
-  between classes.
-* Dimensionality reduction is a tricky business which by construction is a
-  process where information is lost, while trying to retain the most prominent
-  parts. This is exemplified by the different results of the methods used.
-  Also, each method has hyper-parameters that need to be explored before
-  over-interpreting any method's results. Still, if the model had learned to
-  produce very distinct embeddings, we would also expect to see this even in a
-  2D space.
+This may be because the autoencoder was *not* trained to classify inputs by
+label, but to reconstruct and denoise them. Hence the model learns to produce
+latent codes that help in doing that, and as a result may focus on other
+structural elements of the data than those which a classification model would
+use to discriminate between classes. We will investigate this now in more
+detail.
 
-To drill further down, let's try to get a feeling for how easy (or not) the
-MNIST1D dataset is in comparison to MNIST. To do that, we now plot a 2D
-embedding of the *input* data for both of them. We reproduce Fig. 3 of the
-MNIST1D paper (https://proceedings.mlr.press/v235/greydanus24a.html).
+Note: Dimensionality reduction is a tricky business which by construction is a
+process where information is lost, while trying to retain the most prominent
+parts. Also, each method has hyper-parameters that need to be explored before
+over-interpreting any method's results. Still, if the model had learned to
+produce very distinct embeddings, we would also expect to see this even in a 2D
+space.
+
+To gain more insights, we now compute additional t-SNE embeddings: We
+project the MNIST-1D *inputs* of dimension 40 into a 2D space.
 """
 
 # %%
-from sklearn.datasets import fetch_openml
-
-# Download once from https://www.openml.org/, data is cached in ~/scikit_learn_data/
-X_mnist, y_mnist = fetch_openml("mnist_784", return_X_y=True, as_frame=False)
-X_mnist1d, y_mnist1d = clean_mnist1d["x"], clean_mnist1d["y"]
-
-print(f"{X_mnist.shape=} {y_mnist.shape=}")
-print(f"{X_mnist1d.shape=} {y_mnist1d.shape=}")
-
-# MNIST has 70,000 samples, let's take a smaller random sub-sample. Also the
-# MNIST labels are strings '0', '1', ..., convert them to ints.
-msk = np.random.choice(range(X_mnist.shape[0]), size=2000, replace=False)
-X_mnist = X_mnist[msk, :]
-y_mnist = y_mnist[msk].astype("int")
-
-msk = np.random.choice(range(X_mnist1d.shape[0]), size=2000, replace=False)
-X_mnist1d = X_mnist1d[msk, :]
-y_mnist1d = y_mnist1d[msk]
+from sklearn.cluster import HDBSCAN, KMeans
 
 
-# %%
-emb_methods = dict(
-    tsne=TSNE(n_components=2),
-    ##mds=MDS(n_components=2), # slow
-    pca=PCA(n_components=2),
+def cluster(X):
+    print("Running clustering ...")
+    cl = HDBSCAN(min_cluster_size=5, min_samples=1)
+    ##cl = KMeans(n_clusters=10)
+    cl.fit(StandardScaler().fit_transform(X))
+    return cl.labels_
+
+
+print("Running 2D embedding ...")
+X_latent_h_emb2d = TSNE(n_components=2, random_state=23).fit_transform(
+    StandardScaler().fit_transform(X_latent_h)
 )
 
-ncols = 2
-nrows = len(emb_methods)
+cases = [
+    dict(
+        dset_name="MNIST-1D latent h, class labels",
+        X=X_latent_h_emb2d,
+        y=y_latent_h,
+        clustered=False,
+        compute_emb2d=False,
+    ),
+    dict(
+        dset_name="MNIST-1D input (clean), class labels",
+        X=X_clean,
+        y=y_clean,
+        clustered=False,
+        compute_emb2d=True,
+    ),
+    dict(
+        dset_name="MNIST-1D input (noisy), class labels",
+        X=X_noisy,
+        y=y_noisy,
+        clustered=False,
+        compute_emb2d=True,
+    ),
+    ##dict(
+    ##    dset_name="MNIST-1D latent h, cluster labels",
+    ##    X=X_latent_h_emb2d,
+    ##    y=cluster(X_latent_h),
+    ##    clustered=True,
+    ##    compute_emb2d=False,
+    ##),
+    ##dict(
+    ##    dset_name="MNIST-1D input, cluster labels",
+    ##    X=X_clean,
+    ##    y=cluster(X_clean),
+    ##    clustered=True,
+    ##    compute_emb2d=True,
+    ##),
+]
+
+ncols = len(cases)
+nrows = 1
 fig, axs = plt.subplots(
     nrows=nrows, ncols=ncols, figsize=(5 * ncols, 5 * nrows)
 )
-for icol, (dset_name, X, y) in enumerate(
-    [("MNIST", X_mnist, y_mnist), ("MNIST-1D", X_mnist1d, y_mnist1d)]
-):
-    c = [colors[ii] for ii in y]
-    for irow, (emb_name, emb) in enumerate(emb_methods.items()):
-        print(f"processing: {dset_name} {emb_name}")
-        ax = axs[irow, icol]
-        X_emb = emb.fit_transform(StandardScaler().fit_transform(X))
-        ax.scatter(X_emb[:, 0], X_emb[:, 1], c=c)
-        ax.set_title(f"{dset_name}: {emb_name}")
+
+for dct, ax in zip(cases, np.atleast_1d(axs)):
+    dset_name = dct["dset_name"]
+    y = dct["y"]
+    clustered = dct["clustered"]
+    X = dct["X"]
+    compute_emb2d = dct["compute_emb2d"]
+    if compute_emb2d:
+        X_emb2d = TSNE(n_components=2, random_state=23).fit_transform(
+            StandardScaler().fit_transform(X)
+        )
+    else:
+        X_emb2d = X
+    print(f"processing: {dset_name}")
+    if clustered:
+        msk_clusters = y >= 0
+        msk_no_clusters = y < 0
+        y_clusters = y[msk_clusters]
+        ax.scatter(
+            X_emb2d[msk_clusters, 0],
+            X_emb2d[msk_clusters, 1],
+            c=get_label_colors(y_clusters),
+        )
+        ax.scatter(
+            X_emb2d[msk_no_clusters, 0],
+            X_emb2d[msk_no_clusters, 1],
+            color="k",
+            marker="+",
+            alpha=0.2,
+        )
+        n_unique_labels = len(np.unique(y_clusters))
+    else:
+        ax.scatter(X_emb2d[:, 0], X_emb2d[:, 1], c=get_label_colors(y))
+        n_unique_labels = len(np.unique(y))
+    ax.set_title(f"{dset_name} \n#labels = {n_unique_labels}")
+
+fig.savefig("mnist1d_embeddings_2d_compare.svg")
 
 
 # %% [markdown]
 """
-The t-SNE plot of MNIST shows fairly clear clusters, which suggests that MNIST
-is an easy dataset to solve, when talking about classification. Therefore we
-expect it's latent codes to cluster as well (which we don't do here).
+On the left we have the same 2D plot as before, a projection of the learned
+latent `h` into 2D space. The middle and right plots show the t-SNE embedding of the
+40-dimensional inputs. We can make the following observations:
 
-In contrast, the embedding of the MNIST-1D pixel space looks similar to that of
-its `h` projections, which implies that this dataset is a harder classification
-task. Again we find many small clusters that share a label. Given that
-similarity, we may conclude that the autoencoder, not knowing about labels,
-focuses on structural elements belonging to those sub-clusters in order to
-fulfill its task, which is reconstruction.
+* The input embeddings (middle and right) look very similar, so the noise we
+  added to the clean data is such that more than enough of the clean data
+  characteristics are retained, such that learning a denoising model is
+  actually possible.
+* The embedding of the latens `h` and that of the inputs are similar in terms of which
+  classes cluster more (or not). Note that we embed with t-SNE 10 dimensional
+  and 40 dimensional data and hence the produced 2D *shapes* are not *the same*
+  as those have no meaning as such. Only the spatial distiribution of the class
+  colors is what matters.
+* Recall that the inputs and the
+  latent `h` look *very* different, yet their 2D representations are remarkably
+  similar. This shows that the latent codes `h` indeed en**code** the
+  characteristics of the data, even though their numbers (e.g. plotted in 1D)
+  appear meaningless to us. Be reminded that, just as with a standard
+  compression method (like xz, zip, lz4, ...) the compressed data looks nothing
+  like the input. You need the compressed version *plus* the compression
+  (encoder) and decompression (decoder) software. In our case, the autoencoder
+  with its learned weights is the "software", applicable to this dataset.
+* All plots show again sub-clusters that share labels, rather than one cluster
+  per class. This shows that MNIST-1D is in fact a pretty hard nut to crack,
+  when used as a classification dataset (in contrast to MNIST, say, which can
+  be solved even by simple linear models). As we stated earlier, our
+  autoencoder learns the overall characteristics of the data to solve the
+  *reconstruction* task, independent of the labels, which are not used in
+  training.
+* The left plot looks less fragmented (less sub-clusters) than even the
+  embedding of the clean data (middle). This suggests that the latent `h` carry
+  only essential information regarding the data characteristics, i.e. the
+  autoencoder managed to remove data features that are not important.
 """
+
 
 # %% [markdown]
 """
@@ -1071,7 +1165,7 @@ inputs to clean targets.
 
 Now we look at a (maybe simpler) task, which is in fact the first application
 for which autoencoders were used: reconstruct clean targets from **clean**
-inputs.
+inputs, i.e. **representation learning**.
 
 To do that, locate the cell above which calls `get_dataloaders()`
 
