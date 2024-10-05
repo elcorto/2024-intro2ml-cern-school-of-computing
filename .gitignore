@@ -163,3 +163,5 @@ cython_debug/
 *~
 py3*/
 notebooks/img/*pdf
+notebooks/*.svg
+notebooks/*.npy
