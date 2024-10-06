@@ -571,13 +571,17 @@ picked data point `idx_in_batch`, which can be any number between 0 and
 grid = gridspec.GridSpec(nrows=3, ncols=4)
 fig = plt.figure(figsize=(5 * grid.ncols, 5 * grid.nrows))
 
+ax = None
 for batch_idx, (gs, (train_noisy, train_clean)) in enumerate(
     zip(grid, train_dataloader)
 ):
     X_train_noisy, y_train_noisy = train_noisy
     X_train_clean, y_train_clean = train_clean
     assert (y_train_noisy == y_train_clean).all()
-    ax = fig.add_subplot(gs)
+    if ax is None:
+        ax = fig.add_subplot(gs)
+    else:
+        ax = fig.add_subplot(gs, sharey=ax)
     idx_in_batch = np.random.randint(0, len(y_train_noisy))
     ax.plot(
         X_train_noisy[idx_in_batch].squeeze(), label="noisy", color=color_noisy
@@ -778,13 +782,17 @@ with torch.no_grad():
     grid = gridspec.GridSpec(nrows=3, ncols=4)
     fig = plt.figure(figsize=(5 * grid.ncols, 5 * grid.nrows))
 
+    ax = None
     for batch_idx, (gs, (test_noisy, test_clean)) in enumerate(
         zip(grid, test_dataloader)
     ):
         X_test_noisy, y_test_noisy = test_noisy
         X_test_clean, y_test_clean = test_clean
         assert (y_test_noisy == y_test_clean).all()
-        ax = fig.add_subplot(gs)
+        if ax is None:
+            ax = fig.add_subplot(gs)
+        else:
+            ax = fig.add_subplot(gs, sharey=ax)
         idx_in_batch = np.random.randint(0, len(y_test_noisy))
         ax.plot(
             X_test_noisy[idx_in_batch].squeeze(),
@@ -902,11 +910,19 @@ with torch.no_grad():
 
     axs_data = []
     for label, gs in enumerate(grid_data):
-        axs_data.append(fig_data.add_subplot(gs))
+        if len(axs_data) == 0:
+            axs_data.append(fig_data.add_subplot(gs))
+        else:
+            axs_data.append(fig_data.add_subplot(gs, sharey=axs_data[-1]))
         axs_data[-1].set_title(f"clean data, {label=}")
     axs_latent = []
     for label, gs in enumerate(grid_latent):
-        axs_latent.append(fig_latent.add_subplot(gs))
+        if len(axs_latent) == 0:
+            axs_latent.append(fig_latent.add_subplot(gs))
+        else:
+            axs_latent.append(
+                fig_latent.add_subplot(gs, sharey=axs_latent[-1])
+            )
         axs_latent[-1].set_title(f"latent h, {label=}")
 
     X_latent_h = []
