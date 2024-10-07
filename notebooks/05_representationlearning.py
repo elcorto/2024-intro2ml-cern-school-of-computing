@@ -295,10 +295,11 @@ class MyCNN(torch.nn.Module):
         channels=[8, 16, 32],
         input_ndim=40,
         output_ndim=10,
-        latent_ndim=64,
+        mlp_hidden_ndim=128,
     ):
         super().__init__()
         self.layers = torch.nn.Sequential()
+        self.final_layers = torch.nn.Sequential()
 
         channels = [1] + channels
         for ii, (old_n_channels, new_n_channels) in enumerate(
@@ -314,7 +315,7 @@ class MyCNN(torch.nn.Module):
                     stride=2,
                 )
             )
-            if ii < len(channels) - 2:
+            if ii < len(channels) - 1:
                 self.layers.append(
                     torch.nn.Conv1d(
                         in_channels=new_n_channels,
@@ -327,36 +328,25 @@ class MyCNN(torch.nn.Module):
                 )
             self.layers.append(torch.nn.ReLU())
 
+        # This layer will be used as the latent data representation of the CNN.
         self.layers.append(torch.nn.Flatten())
 
         dummy_X = torch.empty(1, 1, input_ndim, device="meta")
         dummy_out = self.layers(dummy_X)
         in_features = dummy_out.shape[-1]
 
-        self.layers.append(
+        self.final_layers.append(
             torch.nn.Linear(
                 in_features=in_features,
-                out_features=2 * latent_ndim,
+                out_features=mlp_hidden_ndim,
             )
         )
-
-        self.layers.append(torch.nn.ReLU())
-
-        # This layer will be used as the latent data representation of the CNN.
-        self.layers.append(
-            torch.nn.Linear(
-                in_features=2 * latent_ndim,
-                out_features=latent_ndim,
-            )
-        )
-
-        self.final_layers = torch.nn.Sequential()
 
         self.final_layers.append(torch.nn.ReLU())
 
         self.final_layers.append(
             torch.nn.Linear(
-                in_features=latent_ndim,
+                in_features=mlp_hidden_ndim,
                 out_features=output_ndim,
             )
         )
@@ -458,7 +448,6 @@ train_dataloader, test_dataloader = get_dataloaders(batch_size=batch_size)
 # %%
 # hyper-parameters that influence model and training
 learning_rate = 5e-4
-latent_ndim = 64
 
 max_epochs = 50
 channels = [32, 64, 128]
@@ -474,7 +463,7 @@ weight_decay = 0.1
 ##    batch_size=batch_size
 ##)
 
-model = MyCNN(channels=channels, latent_ndim=latent_ndim)
+model = MyCNN(channels=channels)
 optimizer = torch.optim.AdamW(
     model.parameters(), lr=learning_rate, weight_decay=weight_decay
 )
