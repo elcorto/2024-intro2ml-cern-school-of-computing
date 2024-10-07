@@ -132,9 +132,9 @@ vis_cache = defaultdict(dict)
 default_emb_name = "umap"
 
 emb_methods = dict(
-    tsne=TSNE(n_components=2, random_state=23),
-    umap=UMAP(n_components=2, random_state=23),
-    isomap=Isomap(n_components=2),
+    tsne=lambda: TSNE(n_components=2, random_state=23),
+    umap=lambda: UMAP(n_components=2, random_state=23),
+    isomap=lambda: Isomap(n_components=2),
 )
 
 ncols = 1
@@ -146,7 +146,7 @@ label_colors = get_label_colors(y_latent_h)
 X_scaled = StandardScaler().fit_transform(X_latent_h)
 for (emb_name, emb), ax in zip(emb_methods.items(), np.atleast_1d(axs)):
     print(f"processing: {emb_name}")
-    X_emb2d = emb.fit_transform(X_scaled)
+    X_emb2d = emb().fit_transform(X_scaled)
     ax.scatter(X_emb2d[:, 0], X_emb2d[:, 1], c=label_colors)
     ax.set_title(f"MNIST-1D latent h: {emb_name}")
     vis_cache["ae_latent_h"][emb_name] = dict(X_emb2d=X_emb2d, y=y_latent_h)
@@ -213,7 +213,7 @@ for dct, ax in zip(cases, np.atleast_1d(axs)):
     compute = dct["compute"]
     print(f"processing: {dset_name}")
     if compute:
-        X_emb2d = emb_methods[default_emb_name].fit_transform(
+        X_emb2d = emb_methods[default_emb_name]().fit_transform(
             StandardScaler().fit_transform(X)
         )
     else:
@@ -568,7 +568,7 @@ for dct, ax in zip(cases, np.atleast_1d(axs)):
     compute = dct["compute"]
     print(f"processing: {dset_name}")
     if compute:
-        X_emb2d = emb_methods[default_emb_name].fit_transform(
+        X_emb2d = emb_methods[default_emb_name]().fit_transform(
             StandardScaler().fit_transform(X)
         )
     else:
