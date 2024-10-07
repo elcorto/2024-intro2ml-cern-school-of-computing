@@ -39,12 +39,13 @@ first.**
 # way to do it in production, but here we don't, for didactic purposes.
 
 from collections import defaultdict
+from typing import Callable
 
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from matplotlib import pyplot as plt
-from sklearn.manifold import TSNE, Isomap
+from sklearn.manifold import TSNE
 from umap import UMAP
 from sklearn.preprocessing import StandardScaler
 
@@ -116,25 +117,45 @@ In the autoencoder lesson, we plotted the latent `h` and found it hard to find
 some structure by visual inspection.
 
 Let's now project the latent representations `h` of dimension 10 into a 2D space
-and see if we can find some structure there. For this we use [t-distributed
-Stochastic Neighbor Embedding
-(t-SNE)](https://scikit-learn.org/stable/modules/manifold.html#t-distributed-stochastic-neighbor-embedding-t-sne),
-[Uniform Manifold Approximation and Projection for Dimension Reduction
-(UMAP)](https://umap-learn.readthedocs.io)
-as well as Isomap as one additional method of the many that `scikit-learn`
-offers.
+and see if we can find some structure there.
+
+### Interlude: Manifold learning a.k.a. Nonlinear dimensionality reduction
+
+![](img/manifold_sklearn.png)
+
+A manifold in 3D space, projected into 2D by several methods (https://scikit-learn.org/stable/modules/manifold.html).
+
+"In mathematics, a manifold is a topological space that locally resembles
+Euclidean space near each point." (https://en.wikipedia.org/wiki/Manifold).
+
+Nonlinear dimensionality reduction seeks to find a lower-dimensional data
+manifold (e.g. the equivalent of a sphere or a sheet) and then project that
+down ("stretch out") to 2D.
+
+Disclaimer: Dimensionality reduction can be a tricky business since
+information can be lost or misrepresented, esp. if no data manifold exists or can be found.
+Also, each method has hyper-parameters that need to be explored before
+over-interpreting any method's results.
+
+### Project `h` into 2D
+
+Going forward, we'll use the popular [Uniform Manifold Approximation and
+Projection for Dimension Reduction (UMAP)](https://umap-learn.readthedocs.io)
+method.
+Fell free also enable the equally popular [t-distributed Stochastic Neighbor
+Embedding
+(t-SNE)](https://scikit-learn.org/stable/modules/manifold.html#t-distributed-stochastic-neighbor-embedding-t-sne)
+for comparison.
 """
 
 # %%
 # We'll cache things in here that we'd like to reuse instead of recomputing
 # them.
 vis_cache = defaultdict(dict)
-default_emb_name = "umap"
 
 emb_methods = dict(
-    tsne=lambda: TSNE(n_components=2, random_state=23),
     umap=lambda: UMAP(n_components=2, random_state=23),
-    isomap=lambda: Isomap(n_components=2),
+    ##tsne=lambda: TSNE(n_components=2, random_state=23),
 )
 
 ncols = 1
@@ -148,7 +169,7 @@ for (emb_name, emb), ax in zip(emb_methods.items(), np.atleast_1d(axs)):
     print(f"processing: {emb_name}")
     X_emb2d = emb().fit_transform(X_scaled)
     ax.scatter(X_emb2d[:, 0], X_emb2d[:, 1], c=label_colors)
-    ax.set_title(f"MNIST-1D latent h: {emb_name}")
+    ax.set_title(f"MNIST-1D latent h: {emb_name}\ncolor = class label")
     vis_cache["ae_latent_h"][emb_name] = dict(X_emb2d=X_emb2d, y=y_latent_h)
 
 
@@ -160,19 +181,12 @@ If your autoencoder model is big enough and training is converged, you should
 see now that overall, there is no clear clustering into groups **by label**
 (the different colors) for all classes. Instead, we find some classes which are
 represented by a number of smaller "sub-clusters" which share the same label
-(esp. in the t-SNE and UMAP plots). Other classes don't show sub-clusters, but are
+(esp. in the t-SNE or UMAP plots). Other classes don't show sub-clusters, but are
 instead scattered all over the place.
 
 In summary, there is definitely structure in the latent `h` representations
 of the data, just not one that can be easily mapped to one class label per cluster.
 So why is that? We will investigate this now in more detail.
-
-Note: Dimensionality reduction is a tricky business which by construction is a
-process where information is lost, while trying to retain the most prominent
-parts. Also, each method has hyper-parameters that need to be explored before
-over-interpreting any method's results. Still, if the model had learned to
-produce very distinct embeddings `h` per class label, we would also expect to
-see this even in a 2D space.
 
 To gain more insights, we now compute additional 2D embeddings: We
 project the MNIST-1D *inputs* of dimension 40 into a 2D space.
@@ -181,46 +195,45 @@ project the MNIST-1D *inputs* of dimension 40 into a 2D space.
 # %%
 cases = [
     dict(
-        dset_name="MNIST-1D AE latent h, class labels",
-        X=vis_cache["ae_latent_h"][default_emb_name]["X_emb2d"],
-        y=vis_cache["ae_latent_h"][default_emb_name]["y"],
-        compute=False,
+        dset_name="MNIST-1D AE latent h",
+        X=lambda emb_name: vis_cache["ae_latent_h"][emb_name]["X_emb2d"],
+        y=lambda emb_name: vis_cache["ae_latent_h"][emb_name]["y"],
     ),
     dict(
-        dset_name="MNIST-1D input (clean), class labels",
+        dset_name="MNIST-1D input (clean)",
         X=X_clean,
         y=y_clean,
-        compute=True,
     ),
     dict(
-        dset_name="MNIST-1D input (noisy), class labels",
+        dset_name="MNIST-1D input (noisy)",
         X=X_noisy,
         y=y_noisy,
-        compute=True,
     ),
 ]
 
 ncols = len(cases)
-nrows = 1
+nrows = len(emb_methods)
 fig, axs = plt.subplots(
     nrows=nrows, ncols=ncols, figsize=(6 * ncols, 5 * nrows)
 )
+axs = np.atleast_2d(axs)
 
-for dct, ax in zip(cases, np.atleast_1d(axs)):
-    dset_name = dct["dset_name"]
-    X = dct["X"]
-    y = dct["y"]
-    compute = dct["compute"]
-    print(f"processing: {dset_name}")
-    if compute:
-        X_emb2d = emb_methods[default_emb_name]().fit_transform(
-            StandardScaler().fit_transform(X)
-        )
-    else:
-        X_emb2d = X
-    ax.scatter(X_emb2d[:, 0], X_emb2d[:, 1], c=get_label_colors(y))
-    n_unique_labels = len(np.unique(y))
-    ax.set_title(f"{dset_name} \n#labels = {n_unique_labels}")
+for irow, (emb_name, emb) in enumerate(emb_methods.items()):
+    for icol, dct in enumerate(cases):
+        ax = axs[irow, icol]
+        dset_name = dct["dset_name"]
+        X = dct["X"]
+        y = dct["y"]
+        print(f"processing: {emb_name}: {dset_name}")
+        if isinstance(X, Callable):
+            X_emb2d = X(emb_name)
+            y = y(emb_name)
+        else:
+            X_emb2d = emb_methods[emb_name]().fit_transform(
+                StandardScaler().fit_transform(X)
+            )
+        ax.scatter(X_emb2d[:, 0], X_emb2d[:, 1], c=get_label_colors(y))
+        ax.set_title(f"{dset_name}: {emb_name}")
 
 fig.savefig("mnist1d_embeddings_2d_compare.svg")
 
@@ -231,16 +244,22 @@ On the left we have the same 2D plot as before, a projection of the
 latent `h` into 2D space. The middle and right plots show the 2D projections of the
 40-dimensional inputs. We can make the following observations:
 
-* The input embeddings (middle and right) look very similar, so the noise we
-  added to the clean data is such that more than enough of the clean data
-  characteristics are retained, which makes learning a denoising model
-  possible in the first place.
-* The embedding of the latent `h` and that of the inputs are similar in terms of which
-  classes cluster (or not). Note that we project with t-SNE/UMAP/... 10
-  dimensional and 40 dimensional data and hence the produced 2D *shapes* are
-  not expected to be the same, as those have no meaning in those methods (see
-  [this](https://scikit-learn.org/stable/modules/manifold.html#optimizing-t-sne))
-  for more. Only the spatial distribution of the class colors is what matters.
+* The embedding of the latent `h` (left) and that of the inputs (middle, right)
+  are similar in terms of which classes cluster (or not). Note that with
+  t-SNE/UMAP/..., we project 10 dimensional and 40 dimensional data and hence
+  the produced 2D *shapes* are not expected to be the same, as those have no
+  meaning in those methods (see
+  [this](https://scikit-learn.org/stable/modules/manifold.html#optimizing-t-sne)
+  for more). Only the number of clusters and the spatial distribution of the
+  class colors is what matters.
+* The input embeddings (middle and right) represent similar information, so it
+  looks as if the noise we added to the clean data is such that more than
+  enough of the clean data characteristics are retained, which makes learning a
+  denoising model possible in the first place.
+* The left plot looks less fragmented (less sub-clusters) than even the
+  embedding of the clean data (middle). This suggests that the latent `h` carry
+  only essential information regarding the data characteristics, i.e. the
+  autoencoder managed to remove data features that are not important.
 * Recall that the inputs and the
   latent `h` look *very* different, yet their 2D representations are remarkably
   similar. This shows that the latent codes `h` indeed en**code** the
@@ -250,10 +269,6 @@ latent `h` into 2D space. The middle and right plots show the 2D projections of 
   like the input. You need the compressed version *plus* the compression
   (encoder) and decompression (decoder) software. In our case, the autoencoder
   with its learned weights is the "software", applicable to this dataset.
-* The left plot looks less fragmented (less sub-clusters) than even the
-  embedding of the clean data (middle). This suggests that the latent `h` carry
-  only essential information regarding the data characteristics, i.e. the
-  autoencoder managed to remove data features that are not important.
 
 But the question remains: Why don't we see one single cluster per class label?
 Two hypotheses come to mind:
@@ -283,8 +298,8 @@ want to predict the class label `[0,1,...,9]` that the 1D sequence belongs to.
 We now build a CNN classification model, the architecture of which is similar
 to our encoder from before. The main difference is that after the convolutional
 layers which do "feature learning" (learn what to pay attention to in the
-input), we have a small MLP that solves the classification task. We will use
-its hidden layer's activations as latent representations.
+input), we have a small MLP that solves the classification task. We will use the
+input feature vectors to the MLP as latent representations.
 """
 
 
@@ -531,40 +546,41 @@ y_latent_cnn = y_clean
 
 cases = [
     dict(
-        dset_name="MNIST-1D AE latent h, class labels",
-        X=vis_cache["ae_latent_h"][default_emb_name]["X_emb2d"],
-        y=vis_cache["ae_latent_h"][default_emb_name]["y"],
-        compute=False,
+        dset_name="MNIST-1D AE latent h",
+        X=lambda emb_name: vis_cache["ae_latent_h"][emb_name]["X_emb2d"],
+        y=lambda emb_name: vis_cache["ae_latent_h"][emb_name]["y"],
     ),
     dict(
-        dset_name="MNIST-1D CNN latent, class labels",
+        dset_name="MNIST-1D CNN latent",
         X=X_latent_cnn,
         y=y_latent_cnn,
-        compute=True,
     ),
 ]
 
 ncols = len(cases)
-nrows = 1
+nrows = len(emb_methods)
 fig, axs = plt.subplots(
     nrows=nrows, ncols=ncols, figsize=(6 * ncols, 5 * nrows)
 )
+axs = np.atleast_2d(axs)
 
-for dct, ax in zip(cases, np.atleast_1d(axs)):
-    dset_name = dct["dset_name"]
-    X = dct["X"]
-    y = dct["y"]
-    compute = dct["compute"]
-    print(f"processing: {dset_name}")
-    if compute:
-        X_emb2d = emb_methods[default_emb_name]().fit_transform(
-            StandardScaler().fit_transform(X)
-        )
-    else:
-        X_emb2d = X
-    ax.scatter(X_emb2d[:, 0], X_emb2d[:, 1], c=get_label_colors(y))
-    n_unique_labels = len(np.unique(y))
-    ax.set_title(f"{dset_name} \n#labels = {n_unique_labels}")
+for irow, (emb_name, emb) in enumerate(emb_methods.items()):
+    for icol, dct in enumerate(cases):
+        ax = axs[irow, icol]
+        dset_name = dct["dset_name"]
+        X = dct["X"]
+        y = dct["y"]
+        print(f"processing: {emb_name}: {dset_name}")
+        if isinstance(X, Callable):
+            X_emb2d = X(emb_name)
+            y = y(emb_name)
+        else:
+            X_emb2d = emb_methods[emb_name]().fit_transform(
+                StandardScaler().fit_transform(X)
+            )
+        ax.scatter(X_emb2d[:, 0], X_emb2d[:, 1], c=get_label_colors(y))
+        ax.set_title(f"{dset_name}: {emb_name}")
+
 
 fig.savefig("mnist1d_cnn_latent_embeddings_2d.svg")
 
