@@ -39,12 +39,13 @@ first.**
 # way to do it in production, but here we don't, for didactic purposes.
 
 from collections import defaultdict
+from typing import Callable
 
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from matplotlib import pyplot as plt
-from sklearn.manifold import TSNE, Isomap
+from sklearn.manifold import TSNE
 from umap import UMAP
 from sklearn.preprocessing import StandardScaler
 
@@ -122,39 +123,39 @@ and see if we can find some structure there.
 
 ![](img/manifold_sklearn.png)
 
-A 2D manififold in 3D, from https://scikit-learn.org/stable/modules/manifold.html
+A manifold in 3D space, projected into 2D by several methods (https://scikit-learn.org/stable/modules/manifold.html).
 
 "In mathematics, a manifold is a topological space that locally resembles
 Euclidean space near each point." (https://en.wikipedia.org/wiki/Manifold).
 
 Nonlinear dimensionality reduction seeks to find a lower-dimensional data
-mainfold (e.g. the equivalent of a sphere or a sheet) and then project that
-down ("strech out") to 2D.
+manifold (e.g. the equivalent of a sphere or a sheet) and then project that
+down ("stretch out") to 2D.
 
 Disclaimer: Dimensionality reduction can be a tricky business since
 information can be lost or misrepresented, esp. if no data manifold exists or can be found.
 Also, each method has hyper-parameters that need to be explored before
 over-interpreting any method's results.
 
+### Project `h` into 2D
+
 Going forward, we'll use the popular [Uniform Manifold Approximation and
-Projection for Dimension Reduction (UMAP)](https://umap-learn.readthedocs.io).
+Projection for Dimension Reduction (UMAP)](https://umap-learn.readthedocs.io)
+method.
 Fell free also enable the equally popular [t-distributed Stochastic Neighbor
 Embedding
-(t-SNE)](https://scikit-learn.org/stable/modules/manifold.html#t-distributed-stochastic-neighbor-embedding-t-sne),
-as well as maybe Isomap as one additional method of the many that
-`scikit-learn` offers.
+(t-SNE)](https://scikit-learn.org/stable/modules/manifold.html#t-distributed-stochastic-neighbor-embedding-t-sne)
+for comparison.
 """
 
 # %%
 # We'll cache things in here that we'd like to reuse instead of recomputing
 # them.
 vis_cache = defaultdict(dict)
-default_emb_name = "umap"
 
 emb_methods = dict(
     umap=lambda: UMAP(n_components=2, random_state=23),
     ##tsne=lambda: TSNE(n_components=2, random_state=23),
-    ##isomap=lambda: Isomap(n_components=2),
 )
 
 ncols = 1
@@ -168,7 +169,7 @@ for (emb_name, emb), ax in zip(emb_methods.items(), np.atleast_1d(axs)):
     print(f"processing: {emb_name}")
     X_emb2d = emb().fit_transform(X_scaled)
     ax.scatter(X_emb2d[:, 0], X_emb2d[:, 1], c=label_colors)
-    ax.set_title(f"MNIST-1D latent h: {emb_name}")
+    ax.set_title(f"MNIST-1D latent h: {emb_name}\ncolor = class label")
     vis_cache["ae_latent_h"][emb_name] = dict(X_emb2d=X_emb2d, y=y_latent_h)
 
 
@@ -194,46 +195,45 @@ project the MNIST-1D *inputs* of dimension 40 into a 2D space.
 # %%
 cases = [
     dict(
-        dset_name="MNIST-1D AE latent h, class labels",
-        X=vis_cache["ae_latent_h"][default_emb_name]["X_emb2d"],
-        y=vis_cache["ae_latent_h"][default_emb_name]["y"],
-        compute=False,
+        dset_name="MNIST-1D AE latent h",
+        X=lambda emb_name: vis_cache["ae_latent_h"][emb_name]["X_emb2d"],
+        y=lambda emb_name: vis_cache["ae_latent_h"][emb_name]["y"],
     ),
     dict(
-        dset_name="MNIST-1D input (clean), class labels",
+        dset_name="MNIST-1D input (clean)",
         X=X_clean,
         y=y_clean,
-        compute=True,
     ),
     dict(
-        dset_name="MNIST-1D input (noisy), class labels",
+        dset_name="MNIST-1D input (noisy)",
         X=X_noisy,
         y=y_noisy,
-        compute=True,
     ),
 ]
 
 ncols = len(cases)
-nrows = 1
+nrows = len(emb_methods)
 fig, axs = plt.subplots(
     nrows=nrows, ncols=ncols, figsize=(6 * ncols, 5 * nrows)
 )
+axs = np.atleast_2d(axs)
 
-for dct, ax in zip(cases, np.atleast_1d(axs)):
-    dset_name = dct["dset_name"]
-    X = dct["X"]
-    y = dct["y"]
-    compute = dct["compute"]
-    print(f"processing: {dset_name}")
-    if compute:
-        X_emb2d = emb_methods[default_emb_name]().fit_transform(
-            StandardScaler().fit_transform(X)
-        )
-    else:
-        X_emb2d = X
-    ax.scatter(X_emb2d[:, 0], X_emb2d[:, 1], c=get_label_colors(y))
-    n_unique_labels = len(np.unique(y))
-    ax.set_title(f"{dset_name} \n#labels = {n_unique_labels}")
+for irow, (emb_name, emb) in enumerate(emb_methods.items()):
+    for icol, dct in enumerate(cases):
+        ax = axs[irow, icol]
+        dset_name = dct["dset_name"]
+        X = dct["X"]
+        y = dct["y"]
+        print(f"processing: {emb_name}: {dset_name}")
+        if isinstance(X, Callable):
+            X_emb2d = X(emb_name)
+            y = y(emb_name)
+        else:
+            X_emb2d = emb_methods[emb_name]().fit_transform(
+                StandardScaler().fit_transform(X)
+            )
+        ax.scatter(X_emb2d[:, 0], X_emb2d[:, 1], c=get_label_colors(y))
+        ax.set_title(f"{dset_name}: {emb_name}")
 
 fig.savefig("mnist1d_embeddings_2d_compare.svg")
 
@@ -546,40 +546,41 @@ y_latent_cnn = y_clean
 
 cases = [
     dict(
-        dset_name="MNIST-1D AE latent h, class labels",
-        X=vis_cache["ae_latent_h"][default_emb_name]["X_emb2d"],
-        y=vis_cache["ae_latent_h"][default_emb_name]["y"],
-        compute=False,
+        dset_name="MNIST-1D AE latent h",
+        X=lambda emb_name: vis_cache["ae_latent_h"][emb_name]["X_emb2d"],
+        y=lambda emb_name: vis_cache["ae_latent_h"][emb_name]["y"],
     ),
     dict(
-        dset_name="MNIST-1D CNN latent, class labels",
+        dset_name="MNIST-1D CNN latent",
         X=X_latent_cnn,
         y=y_latent_cnn,
-        compute=True,
     ),
 ]
 
 ncols = len(cases)
-nrows = 1
+nrows = len(emb_methods)
 fig, axs = plt.subplots(
     nrows=nrows, ncols=ncols, figsize=(6 * ncols, 5 * nrows)
 )
+axs = np.atleast_2d(axs)
 
-for dct, ax in zip(cases, np.atleast_1d(axs)):
-    dset_name = dct["dset_name"]
-    X = dct["X"]
-    y = dct["y"]
-    compute = dct["compute"]
-    print(f"processing: {dset_name}")
-    if compute:
-        X_emb2d = emb_methods[default_emb_name]().fit_transform(
-            StandardScaler().fit_transform(X)
-        )
-    else:
-        X_emb2d = X
-    ax.scatter(X_emb2d[:, 0], X_emb2d[:, 1], c=get_label_colors(y))
-    n_unique_labels = len(np.unique(y))
-    ax.set_title(f"{dset_name} \n#labels = {n_unique_labels}")
+for irow, (emb_name, emb) in enumerate(emb_methods.items()):
+    for icol, dct in enumerate(cases):
+        ax = axs[irow, icol]
+        dset_name = dct["dset_name"]
+        X = dct["X"]
+        y = dct["y"]
+        print(f"processing: {emb_name}: {dset_name}")
+        if isinstance(X, Callable):
+            X_emb2d = X(emb_name)
+            y = y(emb_name)
+        else:
+            X_emb2d = emb_methods[emb_name]().fit_transform(
+                StandardScaler().fit_transform(X)
+            )
+        ax.scatter(X_emb2d[:, 0], X_emb2d[:, 1], c=get_label_colors(y))
+        ax.set_title(f"{dset_name}: {emb_name}")
+
 
 fig.savefig("mnist1d_cnn_latent_embeddings_2d.svg")
 
