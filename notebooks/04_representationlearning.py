@@ -231,16 +231,18 @@ On the left we have the same 2D plot as before, a projection of the
 latent `h` into 2D space. The middle and right plots show the 2D projections of the
 40-dimensional inputs. We can make the following observations:
 
-* The input embeddings (middle and right) look very similar, so the noise we
-  added to the clean data is such that more than enough of the clean data
-  characteristics are retained, which makes learning a denoising model
-  possible in the first place.
-* The embedding of the latent `h` and that of the inputs are similar in terms of which
-  classes cluster (or not). Note that we project with t-SNE/UMAP/... 10
-  dimensional and 40 dimensional data and hence the produced 2D *shapes* are
-  not expected to be the same, as those have no meaning in those methods (see
-  [this](https://scikit-learn.org/stable/modules/manifold.html#optimizing-t-sne))
-  for more. Only the spatial distribution of the class colors is what matters.
+* The embedding of the latent `h` (left) and that of the inputs (middle, right)
+  are similar in terms of which classes cluster (or not). Note that with
+  t-SNE/UMAP/..., we project 10 dimensional and 40 dimensional data and hence
+  the produced 2D *shapes* are not expected to be the same, as those have no
+  meaning in those methods (see
+  [this](https://scikit-learn.org/stable/modules/manifold.html#optimizing-t-sne)
+  for more). Only the number of clusters and the spatial distribution of the
+  class colors is what matters.
+* The input embeddings (middle and right) represent similar information, so it
+  looks as if the noise we added to the clean data is such that more than
+  enough of the clean data characteristics are retained, which makes learning a
+  denoising model possible in the first place.
 * Recall that the inputs and the
   latent `h` look *very* different, yet their 2D representations are remarkably
   similar. This shows that the latent codes `h` indeed en**code** the
@@ -283,8 +285,8 @@ want to predict the class label `[0,1,...,9]` that the 1D sequence belongs to.
 We now build a CNN classification model, the architecture of which is similar
 to our encoder from before. The main difference is that after the convolutional
 layers which do "feature learning" (learn what to pay attention to in the
-input), we have a small MLP that solves the classification task. We will use
-its hidden layer's activations as latent representations.
+input), we have a small MLP that solves the classification task. We will use the
+input feature vectors to the MLP as latent representations.
 """
 
 
