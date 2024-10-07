@@ -18,5 +18,6 @@ seaborn
 mnist1d
 scikit-learn
 torchinfo
+umap-learn
 
 # vim:syn=conf

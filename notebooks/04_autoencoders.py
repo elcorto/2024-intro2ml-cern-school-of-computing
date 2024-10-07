@@ -80,7 +80,7 @@ from matplotlib import gridspec, pyplot as plt
 
 from mnist1d.data import get_dataset_args, make_dataset
 
-from utils import model_summary, MNIST1D, colors_10, get_label_colors
+from utils import model_summary, MNIST1D, colors_10
 
 
 np.random.seed(13)
@@ -571,13 +571,17 @@ picked data point `idx_in_batch`, which can be any number between 0 and
 grid = gridspec.GridSpec(nrows=3, ncols=4)
 fig = plt.figure(figsize=(5 * grid.ncols, 5 * grid.nrows))
 
+ax = None
 for batch_idx, (gs, (train_noisy, train_clean)) in enumerate(
     zip(grid, train_dataloader)
 ):
     X_train_noisy, y_train_noisy = train_noisy
     X_train_clean, y_train_clean = train_clean
     assert (y_train_noisy == y_train_clean).all()
-    ax = fig.add_subplot(gs)
+    if ax is None:
+        ax = fig.add_subplot(gs)
+    else:
+        ax = fig.add_subplot(gs, sharey=ax)
     idx_in_batch = np.random.randint(0, len(y_train_noisy))
     ax.plot(
         X_train_noisy[idx_in_batch].squeeze(), label="noisy", color=color_noisy
@@ -673,9 +677,7 @@ def train_autoencoder(
             )
             test_loss_epoch_sum += test_loss.item()
 
-        logs["train_loss"].append(
-            train_loss_epoch_sum / len(train_dataloader)
-        )
+        logs["train_loss"].append(train_loss_epoch_sum / len(train_dataloader))
         logs["test_loss"].append(test_loss_epoch_sum / len(test_dataloader))
 
         if (epoch + 1) % log_every == 0 or (epoch + 1) == max_epochs:
@@ -703,9 +705,9 @@ latent_ndim = 10
 max_epochs = 20
 enc_channels = [8, 16, 32]
 
-# Longer train, bigger model
+# Longer train, bigger model.
 ##max_epochs = 50
-##enc_channels = [64, 128, 256]
+##enc_channels = [32, 64, 128]
 
 # Regularization parameter to prevent overfitting. This is the AdamW
 # optimizer's default value.
@@ -780,13 +782,17 @@ with torch.no_grad():
     grid = gridspec.GridSpec(nrows=3, ncols=4)
     fig = plt.figure(figsize=(5 * grid.ncols, 5 * grid.nrows))
 
+    ax = None
     for batch_idx, (gs, (test_noisy, test_clean)) in enumerate(
         zip(grid, test_dataloader)
     ):
         X_test_noisy, y_test_noisy = test_noisy
         X_test_clean, y_test_clean = test_clean
         assert (y_test_noisy == y_test_clean).all()
-        ax = fig.add_subplot(gs)
+        if ax is None:
+            ax = fig.add_subplot(gs)
+        else:
+            ax = fig.add_subplot(gs, sharey=ax)
         idx_in_batch = np.random.randint(0, len(y_test_noisy))
         ax.plot(
             X_test_noisy[idx_in_batch].squeeze(),
@@ -904,11 +910,19 @@ with torch.no_grad():
 
     axs_data = []
     for label, gs in enumerate(grid_data):
-        axs_data.append(fig_data.add_subplot(gs))
+        if len(axs_data) == 0:
+            axs_data.append(fig_data.add_subplot(gs))
+        else:
+            axs_data.append(fig_data.add_subplot(gs, sharey=axs_data[-1]))
         axs_data[-1].set_title(f"clean data, {label=}")
     axs_latent = []
     for label, gs in enumerate(grid_latent):
-        axs_latent.append(fig_latent.add_subplot(gs))
+        if len(axs_latent) == 0:
+            axs_latent.append(fig_latent.add_subplot(gs))
+        else:
+            axs_latent.append(
+                fig_latent.add_subplot(gs, sharey=axs_latent[-1])
+            )
         axs_latent[-1].set_title(f"latent h, {label=}")
 
     X_latent_h = []
