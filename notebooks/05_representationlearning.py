@@ -21,7 +21,7 @@ Effective Machine Learning is often about finding a good and flexible model
 that can represent high-dimensional data well. The autoencoder can be such an
 architecture.
 
-Here we first investigate the autoencoder's learned latent space. Then we train
+Here we first investigate the autoencoder's latent space. Then we train
 a classification CNN, which has a completely different task. Instead of
 learning to compress (and denoise) the data, it must classify the inputs by
 label. We will look at its latent representations of the data. Does
@@ -45,6 +45,7 @@ import torch
 from torch.utils.data import DataLoader
 from matplotlib import pyplot as plt
 from sklearn.manifold import TSNE, Isomap
+from umap import UMAP
 from sklearn.preprocessing import StandardScaler
 
 from mnist1d.data import get_dataset_args, make_dataset
@@ -117,7 +118,9 @@ some structure by visual inspection.
 Let's now project the latent representations `h` of dimension 10 into a 2D space
 and see if we can find some structure there. For this we use [t-distributed
 Stochastic Neighbor Embedding
-(t-SNE)](https://scikit-learn.org/stable/modules/manifold.html#t-distributed-stochastic-neighbor-embedding-t-sne)
+(t-SNE)](https://scikit-learn.org/stable/modules/manifold.html#t-distributed-stochastic-neighbor-embedding-t-sne),
+[Uniform Manifold Approximation and Projection for Dimension Reduction
+(UMAP)](https://umap-learn.readthedocs.io)
 as well as Isomap as one additional method of the many that `scikit-learn`
 offers.
 """
@@ -126,9 +129,11 @@ offers.
 # We'll cache things in here that we'd like to reuse instead of recomputing
 # them.
 vis_cache = defaultdict(dict)
+default_emb_name = "umap"
 
 emb_methods = dict(
     tsne=TSNE(n_components=2, random_state=23),
+    umap=UMAP(n_components=2, random_state=23),
     isomap=Isomap(n_components=2),
 )
 
@@ -155,10 +160,10 @@ If your autoencoder model is big enough and training is converged, you should
 see now that overall, there is no clear clustering into groups **by label**
 (the different colors) for all classes. Instead, we find some classes which are
 represented by a number of smaller "sub-clusters" which share the same label
-(esp. in the t-SNE plot). Other classes don't show sub-clusters, but are
+(esp. in the t-SNE and UMAP plots). Other classes don't show sub-clusters, but are
 instead scattered all over the place.
 
-In summary, there is definitely structure in the learned latent `h` representations
+In summary, there is definitely structure in the latent `h` representations
 of the data, just not one that can be easily mapped to one class label per cluster.
 So why is that? We will investigate this now in more detail.
 
@@ -169,7 +174,7 @@ over-interpreting any method's results. Still, if the model had learned to
 produce very distinct embeddings `h` per class label, we would also expect to
 see this even in a 2D space.
 
-To gain more insights, we now compute additional t-SNE embeddings: We
+To gain more insights, we now compute additional 2D embeddings: We
 project the MNIST-1D *inputs* of dimension 40 into a 2D space.
 """
 
@@ -177,8 +182,8 @@ project the MNIST-1D *inputs* of dimension 40 into a 2D space.
 cases = [
     dict(
         dset_name="MNIST-1D AE latent h, class labels",
-        X=vis_cache["ae_latent_h"]["tsne"]["X_emb2d"],
-        y=vis_cache["ae_latent_h"]["tsne"]["y"],
+        X=vis_cache["ae_latent_h"][default_emb_name]["X_emb2d"],
+        y=vis_cache["ae_latent_h"][default_emb_name]["y"],
         compute=False,
     ),
     dict(
@@ -208,7 +213,7 @@ for dct, ax in zip(cases, np.atleast_1d(axs)):
     compute = dct["compute"]
     print(f"processing: {dset_name}")
     if compute:
-        X_emb2d = TSNE(n_components=2, random_state=23).fit_transform(
+        X_emb2d = emb_methods[default_emb_name].fit_transform(
             StandardScaler().fit_transform(X)
         )
     else:
@@ -222,8 +227,8 @@ fig.savefig("mnist1d_embeddings_2d_compare.svg")
 
 # %% [markdown]
 """
-On the left we have the same 2D plot as before, a projection of the learned
-latent `h` into 2D space. The middle and right plots show the t-SNE embedding of the
+On the left we have the same 2D plot as before, a projection of the
+latent `h` into 2D space. The middle and right plots show the 2D projections of the
 40-dimensional inputs. We can make the following observations:
 
 * The input embeddings (middle and right) look very similar, so the noise we
@@ -231,10 +236,11 @@ latent `h` into 2D space. The middle and right plots show the t-SNE embedding of
   characteristics are retained, which makes learning a denoising model
   possible in the first place.
 * The embedding of the latent `h` and that of the inputs are similar in terms of which
-  classes cluster (or not). Note that we embed with t-SNE 10 dimensional and 40
-  dimensional data and hence the produced 2D *shapes* are not expected to be
-  the same, as those have no meaning in t-SNE. Only the spatial distribution
-  of the class colors is what matters.
+  classes cluster (or not). Note that we project with t-SNE/UMAP/... 10
+  dimensional and 40 dimensional data and hence the produced 2D *shapes* are
+  not expected to be the same, as those have no meaning in those methods (see
+  [this](https://scikit-learn.org/stable/modules/manifold.html#optimizing-t-sne))
+  for more. Only the spatial distribution of the class colors is what matters.
 * Recall that the inputs and the
   latent `h` look *very* different, yet their 2D representations are remarkably
   similar. This shows that the latent codes `h` indeed en**code** the
@@ -273,9 +279,6 @@ Two hypotheses come to mind:
 Similar to [MNIST](https://yann.lecun.com/exdb/mnist/), MNIST-1D can be used
 for the task of classification where, given an input sequence, we
 want to predict the class label `[0,1,...,9]` that the 1D sequence belongs to.
-Classification has been one of the driving forces behind progress in machine
-learning, with [AlexNet](https://dl.acm.org/doi/10.1145/3065386) in 2012
-being one of the initial milestones of modern deep learning.
 
 We now build a CNN classification model, the architecture of which is similar
 to our encoder from before. The main difference is that after the convolutional
@@ -540,8 +543,8 @@ y_latent_cnn = y_clean
 cases = [
     dict(
         dset_name="MNIST-1D AE latent h, class labels",
-        X=vis_cache["ae_latent_h"]["tsne"]["X_emb2d"],
-        y=vis_cache["ae_latent_h"]["tsne"]["y"],
+        X=vis_cache["ae_latent_h"][default_emb_name]["X_emb2d"],
+        y=vis_cache["ae_latent_h"][default_emb_name]["y"],
         compute=False,
     ),
     dict(
@@ -565,7 +568,7 @@ for dct, ax in zip(cases, np.atleast_1d(axs)):
     compute = dct["compute"]
     print(f"processing: {dset_name}")
     if compute:
-        X_emb2d = TSNE(n_components=2, random_state=23).fit_transform(
+        X_emb2d = emb_methods[default_emb_name].fit_transform(
             StandardScaler().fit_transform(X)
         )
     else:
