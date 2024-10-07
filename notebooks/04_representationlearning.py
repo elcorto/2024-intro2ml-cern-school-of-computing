@@ -116,13 +116,33 @@ In the autoencoder lesson, we plotted the latent `h` and found it hard to find
 some structure by visual inspection.
 
 Let's now project the latent representations `h` of dimension 10 into a 2D space
-and see if we can find some structure there. For this we use [t-distributed
-Stochastic Neighbor Embedding
+and see if we can find some structure there.
+
+### Interlude: Manifold learning a.k.a. Nonlinear dimensionality reduction
+
+![](img/manifold_sklearn.png)
+
+A 2D manififold in 3D, from https://scikit-learn.org/stable/modules/manifold.html
+
+"In mathematics, a manifold is a topological space that locally resembles
+Euclidean space near each point." (https://en.wikipedia.org/wiki/Manifold).
+
+Nonlinear dimensionality reduction seeks to find a lower-dimensional data
+mainfold (e.g. the equivalent of a sphere or a sheet) and then project that
+down ("strech out") to 2D.
+
+Disclaimer: Dimensionality reduction can be a tricky business since
+information can be lost or misrepresented, esp. if no data manifold exists or can be found.
+Also, each method has hyper-parameters that need to be explored before
+over-interpreting any method's results.
+
+Going forward, we'll use the popular [Uniform Manifold Approximation and
+Projection for Dimension Reduction (UMAP)](https://umap-learn.readthedocs.io).
+Fell free also enable the equally popular [t-distributed Stochastic Neighbor
+Embedding
 (t-SNE)](https://scikit-learn.org/stable/modules/manifold.html#t-distributed-stochastic-neighbor-embedding-t-sne),
-[Uniform Manifold Approximation and Projection for Dimension Reduction
-(UMAP)](https://umap-learn.readthedocs.io)
-as well as Isomap as one additional method of the many that `scikit-learn`
-offers.
+as well as maybe Isomap as one additional method of the many that
+`scikit-learn` offers.
 """
 
 # %%
@@ -132,9 +152,9 @@ vis_cache = defaultdict(dict)
 default_emb_name = "umap"
 
 emb_methods = dict(
-    tsne=lambda: TSNE(n_components=2, random_state=23),
     umap=lambda: UMAP(n_components=2, random_state=23),
-    isomap=lambda: Isomap(n_components=2),
+    ##tsne=lambda: TSNE(n_components=2, random_state=23),
+    ##isomap=lambda: Isomap(n_components=2),
 )
 
 ncols = 1
@@ -160,19 +180,12 @@ If your autoencoder model is big enough and training is converged, you should
 see now that overall, there is no clear clustering into groups **by label**
 (the different colors) for all classes. Instead, we find some classes which are
 represented by a number of smaller "sub-clusters" which share the same label
-(esp. in the t-SNE and UMAP plots). Other classes don't show sub-clusters, but are
+(esp. in the t-SNE or UMAP plots). Other classes don't show sub-clusters, but are
 instead scattered all over the place.
 
 In summary, there is definitely structure in the latent `h` representations
 of the data, just not one that can be easily mapped to one class label per cluster.
 So why is that? We will investigate this now in more detail.
-
-Note: Dimensionality reduction is a tricky business which by construction is a
-process where information is lost, while trying to retain the most prominent
-parts. Also, each method has hyper-parameters that need to be explored before
-over-interpreting any method's results. Still, if the model had learned to
-produce very distinct embeddings `h` per class label, we would also expect to
-see this even in a 2D space.
 
 To gain more insights, we now compute additional 2D embeddings: We
 project the MNIST-1D *inputs* of dimension 40 into a 2D space.
@@ -243,6 +256,10 @@ latent `h` into 2D space. The middle and right plots show the 2D projections of 
   looks as if the noise we added to the clean data is such that more than
   enough of the clean data characteristics are retained, which makes learning a
   denoising model possible in the first place.
+* The left plot looks less fragmented (less sub-clusters) than even the
+  embedding of the clean data (middle). This suggests that the latent `h` carry
+  only essential information regarding the data characteristics, i.e. the
+  autoencoder managed to remove data features that are not important.
 * Recall that the inputs and the
   latent `h` look *very* different, yet their 2D representations are remarkably
   similar. This shows that the latent codes `h` indeed en**code** the
@@ -252,10 +269,6 @@ latent `h` into 2D space. The middle and right plots show the 2D projections of 
   like the input. You need the compressed version *plus* the compression
   (encoder) and decompression (decoder) software. In our case, the autoencoder
   with its learned weights is the "software", applicable to this dataset.
-* The left plot looks less fragmented (less sub-clusters) than even the
-  embedding of the clean data (middle). This suggests that the latent `h` carry
-  only essential information regarding the data characteristics, i.e. the
-  autoencoder managed to remove data features that are not important.
 
 But the question remains: Why don't we see one single cluster per class label?
 Two hypotheses come to mind:
