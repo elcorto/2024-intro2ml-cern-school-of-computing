@@ -326,7 +326,10 @@ print(model)
 # Solution 02.3, second use the library
 from torchinfo import summary
 
-summary(model, input_size=train_X.shape)
+summary(model, input_size=train_X.shape, col_names=("input_size", "output_size", "num_params"))
+
+# %% [markdown]
+# As this is slightly unwieldy, we created the `model_summary` helper function in utils.py, which is going to be used for this purpose in the remaining notebooks.
 
 # %% [markdown]
 # ## Classification with a CNN
