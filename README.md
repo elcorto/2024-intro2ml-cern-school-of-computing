@@ -83,3 +83,8 @@ If you are an instructor, please see the [instructor notes](FOR_INSTRUCTORS.md).
 
 This material is based on
 https://github.com/psteinb/2024-intro2ml-cern-school-of-computing. Thanks!
+
+# Contributing
+
+Please see the [contributing guide](CONTRIBUTING.md). Make sure to only modify
+or add the `.py` files, not the `.ipynb` files.
