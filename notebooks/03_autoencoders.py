@@ -662,20 +662,21 @@ def train_autoencoder(
             train_loss_epoch_sum += train_loss.item()
 
         model.eval()
-        for test_noisy, test_clean in test_dataloader:
-            # Discard labels if using StackDataset
-            if isinstance(test_noisy, Sequence):
-                X_test_noisy = test_noisy[0]
-                X_test_clean = test_clean[0]
-            else:
-                X_test_noisy = test_noisy
-                X_test_clean = test_clean
+        with torch.no_grad():
+            for test_noisy, test_clean in test_dataloader:
+                # Discard labels if using StackDataset
+                if isinstance(test_noisy, Sequence):
+                    X_test_noisy = test_noisy[0]
+                    X_test_clean = test_clean[0]
+                else:
+                    X_test_noisy = test_noisy
+                    X_test_clean = test_clean
 
-            X_prime_test = model(X_test_noisy.to(device))
-            test_loss = loss_func(
-                X_prime_test, X_test_clean.squeeze().to(device)
-            )
-            test_loss_epoch_sum += test_loss.item()
+                X_prime_test = model(X_test_noisy.to(device))
+                test_loss = loss_func(
+                    X_prime_test, X_test_clean.squeeze().to(device)
+                )
+                test_loss_epoch_sum += test_loss.item()
 
         logs["train_loss"].append(train_loss_epoch_sum / len(train_dataloader))
         logs["test_loss"].append(test_loss_epoch_sum / len(test_dataloader))

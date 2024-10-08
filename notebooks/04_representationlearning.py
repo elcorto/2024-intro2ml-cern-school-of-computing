@@ -435,13 +435,14 @@ def train_classifier(
             )
 
         model.eval()
-        for X_test, y_test in test_dataloader:
-            y_pred_test_logits, _ = model(X_test.to(device))
-            test_loss = loss_func(y_pred_test_logits, y_test.to(device))
-            test_loss_epoch_sum += test_loss.item()
-            test_acc_epoch_sum += accuracy(
-                y_test, y_pred_test_logits.argmax(-1).cpu().numpy()
-            )
+        with torch.no_grad():
+            for X_test, y_test in test_dataloader:
+                y_pred_test_logits, _ = model(X_test.to(device))
+                test_loss = loss_func(y_pred_test_logits, y_test.to(device))
+                test_loss_epoch_sum += test_loss.item()
+                test_acc_epoch_sum += accuracy(
+                    y_test, y_pred_test_logits.argmax(-1).cpu().numpy()
+                )
 
         logs["train_loss"].append(train_loss_epoch_sum / len(train_dataloader))
         logs["test_loss"].append(test_loss_epoch_sum / len(test_dataloader))
