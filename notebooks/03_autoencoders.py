@@ -710,9 +710,8 @@ enc_channels = [8, 16, 32]
 ##max_epochs = 50
 ##enc_channels = [32, 64, 128]
 
-# Regularization parameter to prevent overfitting. This is the AdamW
-# optimizer's default value.
-weight_decay = 0.01
+# Regularization parameter to prevent overfitting.
+weight_decay = 0.1
 
 # Defined above already. We skip this here since this is a bit slow. If you
 # want to change batch_size (yet another hyper-parameter!) do it here or in the

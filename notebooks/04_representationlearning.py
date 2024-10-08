@@ -463,10 +463,10 @@ train_dataloader, test_dataloader = get_dataloaders(batch_size=batch_size)
 
 # %%
 # hyper-parameters that influence model and training
-learning_rate = 5e-4
+learning_rate = 3e-4
 
-max_epochs = 50
-channels = [32, 64, 128]
+max_epochs = 20
+channels = [16, 32, 64]
 
 # Regularization parameter to prevent overfitting.
 weight_decay = 0.1
