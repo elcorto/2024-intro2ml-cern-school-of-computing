@@ -139,11 +139,9 @@ over-interpreting any method's results.
 
 ### Project `h` into 2D
 
-Going forward, we'll use the popular [Uniform Manifold Approximation and
-Projection for Dimension Reduction (UMAP)](https://umap-learn.readthedocs.io)
-method.
-Fell free also enable the equally popular [t-distributed Stochastic Neighbor
-Embedding
+Going forward, we'll use the [Uniform Manifold Approximation and Projection for
+Dimension Reduction (UMAP)](https://umap-learn.readthedocs.io) method. Feel
+free also enable the popular [t-distributed Stochastic Neighbor Embedding
 (t-SNE)](https://scikit-learn.org/stable/modules/manifold.html#t-distributed-stochastic-neighbor-embedding-t-sne)
 for comparison.
 """
