@@ -341,11 +341,13 @@ class MyCNN(torch.nn.Module):
                         stride=1,
                     )
                 )
+            self.layers.append(torch.nn.InstanceNorm1d(new_n_channels))
             self.layers.append(torch.nn.ReLU())
 
         # This layer will be used as the latent data representation of the CNN.
         self.layers.append(torch.nn.Flatten())
 
+        ##dummy_X = torch.empty(1, 1, input_ndim, device=next(self.parameters()).device)
         dummy_X = torch.empty(1, 1, input_ndim, device="meta")
         dummy_out = self.layers(dummy_X)
         in_features = dummy_out.shape[-1]

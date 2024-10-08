@@ -222,11 +222,15 @@ class MyEncoder(torch.nn.Module):
                         stride=1,
                     )
                 )
+            self.layers.append(torch.nn.InstanceNorm1d(new_n_channels))
             self.layers.append(torch.nn.ReLU())
 
         self.layers.append(torch.nn.Flatten())
 
         # Calculate in_features for Linear layer
+        #
+        # Some *Norm* layers can't handle device="meta", then use this.
+        ##dummy_X = torch.empty(1, 1, input_ndim, device=next(self.parameters()).device)
         dummy_X = torch.empty(1, 1, input_ndim, device="meta")
         dummy_out = self.layers(dummy_X)
         in_features = dummy_out.shape[-1]
