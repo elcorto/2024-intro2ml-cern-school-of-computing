@@ -193,7 +193,13 @@ Other resources:
 
 # %%
 class MyEncoder(torch.nn.Module):
-    def __init__(self, channels=[8, 16, 32], input_ndim=40, latent_ndim=10):
+    def __init__(
+        self,
+        channels=[8, 16, 32],
+        input_ndim=40,
+        latent_ndim=10,
+        dropout_p=0.1,
+    ):
         super().__init__()
         self.layers = torch.nn.Sequential()
 
@@ -222,11 +228,17 @@ class MyEncoder(torch.nn.Module):
                         stride=1,
                     )
                 )
+                self.layers.append(torch.nn.InstanceNorm1d(new_n_channels))
             self.layers.append(torch.nn.ReLU())
+            if ii < len(channels) - 2:
+                self.layers.append(torch.nn.Dropout(p=dropout_p))
 
         self.layers.append(torch.nn.Flatten())
 
         # Calculate in_features for Linear layer
+        #
+        # Some *Norm* layers can't handle device="meta", then use this.
+        ##dummy_X = torch.empty(1, 1, input_ndim, device=next(self.parameters()).device)
         dummy_X = torch.empty(1, 1, input_ndim, device="meta")
         dummy_out = self.layers(dummy_X)
         in_features = dummy_out.shape[-1]
@@ -662,20 +674,21 @@ def train_autoencoder(
             train_loss_epoch_sum += train_loss.item()
 
         model.eval()
-        for test_noisy, test_clean in test_dataloader:
-            # Discard labels if using StackDataset
-            if isinstance(test_noisy, Sequence):
-                X_test_noisy = test_noisy[0]
-                X_test_clean = test_clean[0]
-            else:
-                X_test_noisy = test_noisy
-                X_test_clean = test_clean
+        with torch.no_grad():
+            for test_noisy, test_clean in test_dataloader:
+                # Discard labels if using StackDataset
+                if isinstance(test_noisy, Sequence):
+                    X_test_noisy = test_noisy[0]
+                    X_test_clean = test_clean[0]
+                else:
+                    X_test_noisy = test_noisy
+                    X_test_clean = test_clean
 
-            X_prime_test = model(X_test_noisy.to(device))
-            test_loss = loss_func(
-                X_prime_test, X_test_clean.squeeze().to(device)
-            )
-            test_loss_epoch_sum += test_loss.item()
+                X_prime_test = model(X_test_noisy.to(device))
+                test_loss = loss_func(
+                    X_prime_test, X_test_clean.squeeze().to(device)
+                )
+                test_loss_epoch_sum += test_loss.item()
 
         logs["train_loss"].append(train_loss_epoch_sum / len(train_dataloader))
         logs["test_loss"].append(test_loss_epoch_sum / len(test_dataloader))
@@ -709,9 +722,8 @@ enc_channels = [8, 16, 32]
 ##max_epochs = 50
 ##enc_channels = [32, 64, 128]
 
-# Regularization parameter to prevent overfitting. This is the AdamW
-# optimizer's default value.
-weight_decay = 0.01
+# Regularization parameter to prevent overfitting.
+weight_decay = 0.1
 
 # Defined above already. We skip this here since this is a bit slow. If you
 # want to change batch_size (yet another hyper-parameter!) do it here or in the

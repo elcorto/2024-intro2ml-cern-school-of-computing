@@ -139,11 +139,9 @@ over-interpreting any method's results.
 
 ### Project `h` into 2D
 
-Going forward, we'll use the popular [Uniform Manifold Approximation and
-Projection for Dimension Reduction (UMAP)](https://umap-learn.readthedocs.io)
-method.
-Fell free also enable the equally popular [t-distributed Stochastic Neighbor
-Embedding
+Going forward, we'll use the [Uniform Manifold Approximation and Projection for
+Dimension Reduction (UMAP)](https://umap-learn.readthedocs.io) method. Feel
+free also enable the popular [t-distributed Stochastic Neighbor Embedding
 (t-SNE)](https://scikit-learn.org/stable/modules/manifold.html#t-distributed-stochastic-neighbor-embedding-t-sne)
 for comparison.
 """
@@ -311,6 +309,7 @@ class MyCNN(torch.nn.Module):
         input_ndim=40,
         output_ndim=10,
         mlp_hidden_ndim=128,
+        dropout_p=0.01,
     ):
         super().__init__()
         self.layers = torch.nn.Sequential()
@@ -330,22 +329,24 @@ class MyCNN(torch.nn.Module):
                     stride=2,
                 )
             )
-            if ii < len(channels) - 1:
-                self.layers.append(
-                    torch.nn.Conv1d(
-                        in_channels=new_n_channels,
-                        out_channels=new_n_channels,
-                        kernel_size=3,
-                        padding=1,
-                        padding_mode="replicate",
-                        stride=1,
-                    )
+            self.layers.append(
+                torch.nn.Conv1d(
+                    in_channels=new_n_channels,
+                    out_channels=new_n_channels,
+                    kernel_size=3,
+                    padding=1,
+                    padding_mode="replicate",
+                    stride=1,
                 )
+            )
+            self.layers.append(torch.nn.InstanceNorm1d(new_n_channels))
             self.layers.append(torch.nn.ReLU())
+            self.layers.append(torch.nn.Dropout(p=dropout_p))
 
         # This layer will be used as the latent data representation of the CNN.
         self.layers.append(torch.nn.Flatten())
 
+        ##dummy_X = torch.empty(1, 1, input_ndim, device=next(self.parameters()).device)
         dummy_X = torch.empty(1, 1, input_ndim, device="meta")
         dummy_out = self.layers(dummy_X)
         in_features = dummy_out.shape[-1]
@@ -435,13 +436,14 @@ def train_classifier(
             )
 
         model.eval()
-        for X_test, y_test in test_dataloader:
-            y_pred_test_logits, _ = model(X_test.to(device))
-            test_loss = loss_func(y_pred_test_logits, y_test.to(device))
-            test_loss_epoch_sum += test_loss.item()
-            test_acc_epoch_sum += accuracy(
-                y_test, y_pred_test_logits.argmax(-1).cpu().numpy()
-            )
+        with torch.no_grad():
+            for X_test, y_test in test_dataloader:
+                y_pred_test_logits, _ = model(X_test.to(device))
+                test_loss = loss_func(y_pred_test_logits, y_test.to(device))
+                test_loss_epoch_sum += test_loss.item()
+                test_acc_epoch_sum += accuracy(
+                    y_test, y_pred_test_logits.argmax(-1).cpu().numpy()
+                )
 
         logs["train_loss"].append(train_loss_epoch_sum / len(train_dataloader))
         logs["test_loss"].append(test_loss_epoch_sum / len(test_dataloader))
@@ -462,10 +464,10 @@ train_dataloader, test_dataloader = get_dataloaders(batch_size=batch_size)
 
 # %%
 # hyper-parameters that influence model and training
-learning_rate = 5e-4
+learning_rate = 3e-4
 
-max_epochs = 50
-channels = [32, 64, 128]
+max_epochs = 20
+channels = [16, 32, 64]
 
 # Regularization parameter to prevent overfitting.
 weight_decay = 0.1
