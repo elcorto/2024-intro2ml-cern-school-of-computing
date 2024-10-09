@@ -38,7 +38,7 @@ In the above, the network receives an input vector $x = \left(x_{0}, x_{1}, x_{2
 - a bias vector $\beta$
 - an activation function $\sigma$ (applied elementwise on the resulting vector)
 
-The output of the hidden unit will be considered to be the input of the last layer. This in turn produces the output vector $\hat{y} = \left(\hat{y}_{0}, \hat{y}_{1} \right)^{T}$ of the forward pass. In order to establish a learning process, this prediction $\hat{y}$ will be compared with a label $y$ using the loss the function $\mathcal{L}(y,\hat{y})$.
+The output of the hidden unit will be considered to be the input of the last layer. This in turn produces the output vector $\hat{y} = \left(\hat{y}_{0}, \hat{y}_{1} \right)^{T}$ of the forward pass.
 """
 
 # %% [markdown]
@@ -53,7 +53,7 @@ r"""
 >
 > Some comments to the above:
 > - the figure omits the display of all matrix elements of $W^{I}$ and $W^{II}$ to remain clear for the reader
-> - the last layer does not explicitely state which activation $\sigma$ is used. Depending on the use case, this activation function could be e.g. a [ReLU](https://en.wikipedia.org/wiki/ReLU) or [Sigmoid](https://en.wikipedia.org/wiki/Sigmoid_function) (often used for regression) or a [softmax](https://en.wikipedia.org/wiki/Softmax_function) function (often seen in multi-class classification problems). However, this is largely application-specific and driven by the required characteristics of the output (e.g. non-negativity, lying in a certain range, ...). 
+> - the last layer does not explicitely state which activation $\sigma$ is used. Depending on the use case, this activation function could be e.g. a [ReLU](https://en.wikipedia.org/wiki/ReLU) or [Sigmoid](https://en.wikipedia.org/wiki/Sigmoid_function) (often used for regression) or a [softmax](https://en.wikipedia.org/wiki/Softmax_function) function (often seen in multi-class classification problems). However, this is largely application-specific and driven by the required characteristics of the output (e.g. non-negativity, lying in a certain range, ...).
 """
 
 # %% [markdown]
@@ -76,7 +76,7 @@ Take pen and paper or a digital equivalent. Mark the path of all computations wh
 # %% [markdown]
 # ## A simple MLP
 #
-# To start off this exericse, we want to construct a very simple MLP with one input unit, one hidden unit and one ouput unit. We will keep everything lightweight and one dimensional.
+# To start off this exericse, we want to construct a very simple MLP with one input unit, one hidden unit and one output unit. We will keep everything lightweight and one dimensional.
 #
 # <div style="display: block;margin-left: auto;margin-right: auto;width: 75%;"><img src="img/01_1D_mlp.svg" alt="1D MLP"></div>
 #
@@ -104,16 +104,19 @@ Use the [ReLU function](https://en.wikipedia.org/wiki/Rectifier_(neural_networks
 # > **Solution 01.2**
 # > 1. Compute $W \cdot x + \beta$: We obtain `2`.
 # > 2. Apply the ReLU: We obtain $\hat{y}=2$ again (2 is larger than 0 and hence $f_{ReLU}(x=2)=2$).
-# > 3. Compute the loss: $\mathcal{L}(y,\hat{y}) = (y-\hat{y})^2 = (1.5 - 2)^2 = \frac{1}{4}$ 
+# > 3. Compute the loss: $\mathcal{L}(y,\hat{y}) = (y-\hat{y})^2 = (1.5 - 2)^2 = \frac{1}{4}$
 
 # %% [markdown]
 # # Supervised Learning
 #
-# Given a dataset $\mathcal{D} = \{\langle x_i, y_i\rangle \dots \}$ with input data $x_{i} \in \mathbb{R}^n$ and labels $y \in \mathbb{R}^{2}$, we would like to train a model $f$ with parameters $\varphi = \{ W^{I}, \beta^{I}, W^{II}, \beta^{II} \}$ such that:
+# Given a dataset $\mathcal{D} = \{\langle x_i, y_i\rangle \dots \}$ with input data $x_{i} \in \mathbb{R}^n$ and labels $y_{i} \in \mathbb{R}^{2}$, we would like to train a model $f$ with parameters $\varphi = \{ W^{I}, \beta^{I}, W^{II}, \beta^{II} \}$ such that
 #
-# $$ \hat{y} = \hat{f}(x|\varphi) $$
+# $$ \hat{y} = f(x|\varphi) $$
 #
-# To obtain a good estimate of $f$, we alter the weights of our model $\varphi$. To do this, the optimisation is performed using a loss function $\mathcal{L}$ to obtain an optimal set of weights $\varphi$ by minimizing $\mathcal{L}$:
+# closely matches the observed label $y$.
+# To achieve this goal, we alter the weights of our model $\varphi$.
+# In order to establish a learning process, our prediction $\hat{y}$ will be compared with the observed label $y$ using a loss function $\mathcal{L}(y,\hat{y})$.
+# An optimisation procedure is then employed to obtain a suitable set of weights $\varphi$ by minimizing $\mathcal{L}$:
 #
 # $ \varphi^{*} \approx \text{argmin}_{\varphi} \mathcal{L}( y, \hat{y} = f(x | \varphi) ) $.
 #
