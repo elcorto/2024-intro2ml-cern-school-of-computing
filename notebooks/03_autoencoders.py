@@ -193,7 +193,13 @@ Other resources:
 
 # %%
 class MyEncoder(torch.nn.Module):
-    def __init__(self, channels=[8, 16, 32], input_ndim=40, latent_ndim=10):
+    def __init__(
+        self,
+        channels=[8, 16, 32],
+        input_ndim=40,
+        latent_ndim=10,
+        dropout_p=0.1,
+    ):
         super().__init__()
         self.layers = torch.nn.Sequential()
 
@@ -222,8 +228,10 @@ class MyEncoder(torch.nn.Module):
                         stride=1,
                     )
                 )
-            self.layers.append(torch.nn.InstanceNorm1d(new_n_channels))
+                self.layers.append(torch.nn.InstanceNorm1d(new_n_channels))
             self.layers.append(torch.nn.ReLU())
+            if ii < len(channels) - 2:
+                self.layers.append(torch.nn.Dropout(p=dropout_p))
 
         self.layers.append(torch.nn.Flatten())
 

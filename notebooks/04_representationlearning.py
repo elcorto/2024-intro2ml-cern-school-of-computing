@@ -309,6 +309,7 @@ class MyCNN(torch.nn.Module):
         input_ndim=40,
         output_ndim=10,
         mlp_hidden_ndim=128,
+        dropout_p=0.01,
     ):
         super().__init__()
         self.layers = torch.nn.Sequential()
@@ -328,19 +329,19 @@ class MyCNN(torch.nn.Module):
                     stride=2,
                 )
             )
-            if ii < len(channels) - 1:
-                self.layers.append(
-                    torch.nn.Conv1d(
-                        in_channels=new_n_channels,
-                        out_channels=new_n_channels,
-                        kernel_size=3,
-                        padding=1,
-                        padding_mode="replicate",
-                        stride=1,
-                    )
+            self.layers.append(
+                torch.nn.Conv1d(
+                    in_channels=new_n_channels,
+                    out_channels=new_n_channels,
+                    kernel_size=3,
+                    padding=1,
+                    padding_mode="replicate",
+                    stride=1,
                 )
+            )
             self.layers.append(torch.nn.InstanceNorm1d(new_n_channels))
             self.layers.append(torch.nn.ReLU())
+            self.layers.append(torch.nn.Dropout(p=dropout_p))
 
         # This layer will be used as the latent data representation of the CNN.
         self.layers.append(torch.nn.Flatten())
