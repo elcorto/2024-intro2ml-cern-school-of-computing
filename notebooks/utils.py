@@ -85,7 +85,7 @@ def model_summary(*args, **kwds):
 
 
 def import_check(fn: str):
-    name_map = {"scikit-learn": "sklearn"}
+    name_map = {"scikit-learn": "sklearn", "umap-learn": "umap"}
     with open(fn, "r") as fd:
         for line in fd.readlines():
             m = re.match(r"^([^#]\s*[a-z0-9_\-]+).*$", line.strip())
