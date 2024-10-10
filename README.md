@@ -34,6 +34,9 @@ https://indico.gsi.de/event/19869/
     source thrill24/bin/activate
     ```
 
+> [!NOTE]
+> On Windows, the `activate` script is usually located here: `thrill24/Scripts/activate`.
+
 * clone this repo: `git clone https://github.com/elcorto/2024-thrill-school-machine-learning`
 * change into the repo root folder: `cd 2024-thrill-school-machine-learning`
 * (optional) install CPU-only [`torch`](https://pytorch.org/) (all code
