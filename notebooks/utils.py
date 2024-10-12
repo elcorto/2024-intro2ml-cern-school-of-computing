@@ -103,14 +103,13 @@ def import_check(fn: str):
 
 
 # https://matplotlib.org/stable/gallery/color/color_cycle_default.html
-prop_cycle = plt.rcParams["axes.prop_cycle"]
-colors_10 = prop_cycle.by_key()["color"]
+colors_10 = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 assert len(colors_10) == 10
 
 
 def get_label_colors(y, cmap=colormaps.get_cmap("jet")):
     n_unique_labels = len(np.unique(y))
-    if n_unique_labels == 10:
+    if n_unique_labels <= 10:
         colors = colors_10
     else:
         rng = np.random.default_rng(seed=42)
