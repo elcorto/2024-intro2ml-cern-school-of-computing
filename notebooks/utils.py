@@ -91,14 +91,14 @@ def import_check(fn: str):
             m = re.match(r"^([^#]\s*[a-z0-9_\-]+).*$", line.strip())
             if m is not None:
                 pkg_name = name_map.get(m.group(1), m.group(1))
-                try:
+                if importlib.util.find_spec(pkg_name):
                     pkg = importlib.import_module(pkg_name)
                     if hasattr(pkg, "__version__"):
                         vv = f"version {pkg.__version__}"
                     else:
                         vv = "(no version info)"
                     print(f"{pkg_name:20}: found, {vv:25}")
-                except ImportError:
+                else:
                     print(f"{pkg_name}: NOT FOUND!")
 
 
