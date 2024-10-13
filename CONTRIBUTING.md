@@ -11,3 +11,5 @@ will trigger this action and create an automatic commit adding the updated
 
 A commit in any branch will also trigger a test CI run which will run all `.py`
 files as scripts.
+
+Please use the `jupytext` version from `requirements_dev.txt`.
