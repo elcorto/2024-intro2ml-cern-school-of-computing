@@ -66,7 +66,7 @@ https://indico.gsi.de/event/19869/
 * Go to https://mybinder.org/ and point it to this repo's URL. It will create a
   docker image, install all dependencies from `requirements.txt` and launch a
   JupyterLab (might take a while).
-* [Google Colab](https://colab.research.google.com) it **not** really an
+* [Google Colab](https://colab.research.google.com) is **not** really an
   option:
   * it requires a Google account
   * it doesn't seem to have native support for installing dependencies from a
