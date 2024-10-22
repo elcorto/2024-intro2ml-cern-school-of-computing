@@ -19,20 +19,24 @@ https://indico.gsi.de/event/19869/
 
   Both `miniconda` and `uv` work on MacOS, Linux and Windows.
 
-* create a `venv`:
+* create a virtual environment:
   * if you installed Python via `uv`
 
     ```sh
     uv venv thrill24
-    source thrill24/bin/activate
     ```
 
   * else
 
     ```sh
     python -m venv thrill24
-    source thrill24/bin/activate
     ```
+
+* activate the virtual environment:
+
+  ```sh
+  source thrill24/bin/activate
+  ```
 
 > [!NOTE]
 > On Windows, the `activate` script is usually `thrill24/Scripts/activate` and
@@ -40,14 +44,13 @@ https://indico.gsi.de/event/19869/
 
 * clone this repo: `git clone https://github.com/elcorto/2024-thrill-school-machine-learning`
 * change into the repo root folder: `cd 2024-thrill-school-machine-learning`
-* install CPU-only [`torch`](https://pytorch.org/) (optional) and other dependencies (required)
 
-  ```sh
-  uv pip install --extra-index-url https://download.pytorch.org/whl/cpu torch
-  uv pip install -r ./requirements.txt
-  ```
+> [!NOTE]
+> If you created the virtual environment using `uv`, then replace `python -m
+> pip install` below with `uv pip install`.
+>
 
-  or
+* install CPU-only [`torch`](https://pytorch.org/) (optional) and other dependencies (required);
 
   ```sh
   python -m pip install --extra-index-url https://download.pytorch.org/whl/cpu torch
@@ -59,7 +62,20 @@ https://indico.gsi.de/event/19869/
   Code](https://code.visualstudio.com/docs/datascience/jupyter-notebooks)
   already installed, then
   we recommend to install Jupyter following [these
-  instructions](https://jupyter.org/install).
+  instructions](https://jupyter.org/install), that is
+
+  ```sh
+  python -m pip install jupyterlab
+  ```
+
+  Then start JupyterLab from the command line (Linux/MacOS) or PowerShell
+  (Windows)
+
+  ```sh
+  jupyter lab
+  ```
+
+  which will open a JupyterLab session in your browser.
 
 ### Alternatives to a local install
 
