@@ -50,7 +50,7 @@ https://indico.gsi.de/event/19869/
 > pip install` below with `uv pip install`.
 >
 
-* install CPU-only [`torch`](https://pytorch.org/) (optional) and other dependencies (required);
+* install CPU-only [`torch`](https://pytorch.org/) (optional) and other dependencies (required)
 
   ```sh
   python -m pip install --extra-index-url https://download.pytorch.org/whl/cpu torch
